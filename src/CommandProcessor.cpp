@@ -1,4 +1,6 @@
 #include "CommandProcessor.h"
+#include "CommandProcessor.h"
+#include "CommandProcessor.h"
 #include "Utils.h"
 #include "Commands.h"
 #include "Constants.h"
@@ -12,33 +14,33 @@ CommandProcessor::CommandProcessor(MidiSender& sender)
 void CommandProcessor::handle(unsigned char command, unsigned char value) {
     if (command >= CMD_PLAY && command <= CMD_TEMPO) {
         handleTransport(command, value);
-    } else if (command >= CMD_TRACK_SELECTED && command <= CMD_TRACK_MUTED_BY_SOLO) {
+    } 
+    else if (command >= CMD_TRACK_SELECTED && command <= CMD_TRACK_MUTED_BY_SOLO) {
         handleTrackControl(command, value);
-    } else if (command >= CMD_KNOB_VOLUME0 && command <= CMD_KNOB_PAN7) {
+    } 
+    else if (command >= CMD_KNOB_VOLUME0 && command <= CMD_KNOB_PAN7) {
         handleMixerKnob(command, convertSignedMidiValue(value));
-    } else if (command == CMD_CLEAR) {
-        Main_OnCommand(40129, 0);
-        Main_OnCommand(41349, 0);
-    } else if (command == CMD_COUNT) {
-        g_KKcountInTriggered = true;
-        g_KKcountInMetroState = (*(int*)GetConfigVar("projmetroen") & 1);
-        Main_OnCommand(41745, 0);
-        *(int*)GetConfigVar("projmetroen") |= 16;
-        CSurf_OnRecord();
-    } else if (command == CMD_NAV_TRACKS || command == CMD_NAV_BANKS || command == CMD_NAV_CLIPS) {
+    } 
+    else if (command == CMD_NAV_TRACKS || command == CMD_NAV_BANKS || command == CMD_NAV_CLIPS) {
         handleNavigation(command, value);
-    } else if (command == CMD_CHANGE_SEL_TRACK_VOLUME || command == CMD_CHANGE_SEL_TRACK_PAN ||
+    } 
+    else if (command == CMD_CHANGE_SEL_TRACK_VOLUME || command == CMD_CHANGE_SEL_TRACK_PAN ||
         command == CMD_TOGGLE_SEL_TRACK_MUTE || command == CMD_TOGGLE_SEL_TRACK_SOLO) {
         handleSelectedTrack(command, value);
-    } else {
-        std::ostringstream msg;
-        msg << "[Unhandled Command] " << getCommandName(command)
-            << " (" << (int)command << "), Value: " << (int)value << "\n";
-        ShowConsoleMsg(msg.str().c_str());
+    } 
+    else if (command == CMD_CLEAR) {
+        handleClear(command, value);
+    } 
+    else if (command == CMD_COUNT) {
+        handleCount(command, value);
+    } 
+    else {
+        logCommand(command, value, "unhandled");
     }
 }
 
 void CommandProcessor::handleTransport(unsigned char command, unsigned char value) {
+    logCommand(command, value, "transport");
     switch (command) {
         case CMD_PLAY:
             CSurf_OnPlay();
@@ -94,8 +96,8 @@ void CommandProcessor::toggleAutomationMode() {
     }
 }
 
-
 void CommandProcessor::handleMixerKnob(unsigned char command, signed char value) {
+    logCommand(command, value, "mixer knob");
     int trackIndex = -1;
 
     if (command >= CMD_KNOB_VOLUME0 && command <= CMD_KNOB_VOLUME7) {
@@ -117,6 +119,7 @@ void CommandProcessor::handleMixerKnob(unsigned char command, signed char value)
 }
 
 void CommandProcessor::handleTrackControl(unsigned char command, unsigned char value) {
+    logCommand(command, value, "track");
     int trackIndex = static_cast<int>(value);
     MediaTrack* track = CSurf_TrackFromID(trackIndex + 1, false); // tracks are 1-based
 
@@ -155,6 +158,7 @@ void CommandProcessor::handleTrackControl(unsigned char command, unsigned char v
 }
 
 void CommandProcessor::handleNavigation(unsigned char command, unsigned char value) {
+    logCommand(command, value, "navigation");
     const int step = convertSignedMidiValue(value); // -1 or 1
 
     switch (command) {
@@ -206,6 +210,7 @@ void CommandProcessor::handleNavigation(unsigned char command, unsigned char val
 }
 
 void CommandProcessor::handleSelectedTrack(unsigned char command, unsigned char value) {
+    logCommand(command, value, "selected track");
     MediaTrack* track = CSurf_TrackFromID(g_trackInFocus, false);
     if (!track || g_trackInFocus < 1) return;
 
@@ -243,6 +248,32 @@ void CommandProcessor::handleSelectedTrack(unsigned char command, unsigned char 
         default:
             break;
     }
+}
+
+void CommandProcessor::handleClear(unsigned char command, unsigned char value)
+{
+    logCommand(command, value, "clear");
+    Main_OnCommand(40129, 0);
+    Main_OnCommand(41349, 0);
+}
+
+void CommandProcessor::handleCount(unsigned char command, unsigned char value) {
+    logCommand(command, value, "count");
+    g_KKcountInTriggered = true;
+    g_KKcountInMetroState = (*(int*)GetConfigVar("projmetroen") & 1);
+    Main_OnCommand(41745, 0);
+    *(int*)GetConfigVar("projmetroen") |= 16;
+    CSurf_OnRecord();
+}
+
+void CommandProcessor::logCommand(unsigned char command, unsigned char value, const std::string& context)
+{
+    std::ostringstream msg;
+    msg << "[Command/" << context << "] "
+        << getCommandName(command)
+        << " (" << static_cast<int>(command) << "), Value: "
+        << static_cast<int>(value) << "\n";
+    ShowConsoleMsg(msg.str().c_str());
 }
 
 
