@@ -74,26 +74,24 @@
 #define REAPERAPI_WANT_file_exists
 #define REAPERAPI_WANT_NamedCommandLookup
 
+
 #include <reaper/reaper_plugin.h>
 #include <reaper/reaper_plugin_functions.h>
 #include <reaper/WDL/db2val.h>
 
 const std::string getKkInstanceName(MediaTrack* track, bool stripPrefix=false);
 
-class BaseSurface: public IReaperControlSurface {
-	public:
+class BaseSurface : public IReaperControlSurface {
+public:
 	BaseSurface();
 	virtual ~BaseSurface();
-	virtual const char* GetConfigString() override {
-		return "";
-	}
+
+	virtual const char* GetConfigString() override { return ""; }
 	virtual void Run() override;
 
-	protected:
+protected:
 	midi_Input* _midiIn = nullptr;
 	midi_Output* _midiOut = nullptr;
+
 	virtual void _onMidiEvent(MIDI_event_t* event) = 0;
 };
-
-IReaperControlSurface* createNiMidiSurface();
-

@@ -2,6 +2,10 @@
 set(reakontrol_SOURCES
     ${CMAKE_CURRENT_SOURCE_DIR}/main.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/nimidi.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/Utils.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/MidiSender.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/CommandProcessor.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/ActionList.cpp
 )
 
 set(reakontrol_HEADERS
