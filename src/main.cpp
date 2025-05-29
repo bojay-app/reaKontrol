@@ -38,8 +38,8 @@ DWORD GetTickCount()
 
 using namespace std;
 
-const char KK_VST_PREFIX[] = "VSTi: Komplete Kontrol";
-const char KK_VST3_PREFIX[] = "VST3i: Komplete Kontro"; // lazy cheat to make it the same length as VST2
+const char KK_VST_PREFIX[] = "VSTi: Kontakt";
+const char KK_VST3_PREFIX[] = "VST3i: Kontakt"; // lazy cheat to make it the same length as VST2
 const char KK_INSTANCE_PARAM_PREFIX[] = "NIKB";
 extern "C" IReaperControlSurface* createNiMidiSurface();
 

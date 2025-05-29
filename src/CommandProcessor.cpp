@@ -12,35 +12,22 @@ CommandProcessor::CommandProcessor(MidiSender& sender)
     : midiSender(sender) {}
 
 void CommandProcessor::handle(unsigned char command, unsigned char value) {
-    if (command >= CMD_PLAY && command <= CMD_TEMPO) {
-        handleTransport(command, value);
-    } 
-    else if (command >= CMD_TRACK_SELECTED && command <= CMD_TRACK_MUTED_BY_SOLO) {
-        handleTrackControl(command, value);
-    } 
-    else if (command >= CMD_KNOB_VOLUME0 && command <= CMD_KNOB_PAN7) {
-        handleMixerKnob(command, convertSignedMidiValue(value));
-    } 
-    else if (command == CMD_NAV_TRACKS || command == CMD_NAV_BANKS || command == CMD_NAV_CLIPS) {
-        handleNavigation(command, value);
-    } 
-    else if (command == CMD_CHANGE_SEL_TRACK_VOLUME || command == CMD_CHANGE_SEL_TRACK_PAN ||
-        command == CMD_TOGGLE_SEL_TRACK_MUTE || command == CMD_TOGGLE_SEL_TRACK_SOLO) {
-        handleSelectedTrack(command, value);
-    } 
-    else if (command == CMD_CLEAR) {
-        handleClear(command, value);
-    } 
-    else if (command == CMD_COUNT) {
+    bool handled =
+        handleTransport(command, value) ||
+        handleTrackControl(command, value) ||
+        handleMixerKnob(command, convertSignedMidiValue(value)) ||
+        handleNavigation(command, value) ||
+        handleSelectedTrack(command, value) ||
+        handleClear(command, value) ||
         handleCount(command, value);
-    } 
-    else {
-        logCommand(command, value, "unhandled");
+    
+    if (!handled) {
+        logCommand(command, value, "**unhandled**");
     }
 }
 
-void CommandProcessor::handleTransport(unsigned char command, unsigned char value) {
-    logCommand(command, value, "transport");
+bool CommandProcessor::handleTransport(unsigned char command, unsigned char value) {
+    bool handled = true;
     switch (command) {
         case CMD_PLAY:
             CSurf_OnPlay();
@@ -79,31 +66,26 @@ void CommandProcessor::handleTransport(unsigned char command, unsigned char valu
         case CMD_AUTO:
             toggleAutomationMode();
             break;
+        default:
+            handled = false;
+            break;
     }
+
+    if (handled) {
+        logCommand(command, value, "transport");
+    }
+
+    return handled;
 }
 
-void CommandProcessor::toggleAutomationMode() {
-    if (g_trackInFocus == 0) {
-        int mode = GetGlobalAutomationOverride();
-        mode = (mode > 1) ? -1 : 4;
-        SetGlobalAutomationOverride(mode);
-    } else {
-        MediaTrack* track = CSurf_TrackFromID(g_trackInFocus, false);
-        if (!track) return;
-        int mode = *(int*)GetSetMediaTrackInfo(track, "I_AUTOMODE", nullptr);
-        mode = (mode > 1) ? 0 : 4;
-        GetSetMediaTrackInfo(track, "I_AUTOMODE", &mode);
-    }
-}
-
-void CommandProcessor::handleMixerKnob(unsigned char command, signed char value) {
-    logCommand(command, value, "mixer knob");
+bool CommandProcessor::handleMixerKnob(unsigned char command, signed char value) {
+    bool handled = true;
     int trackIndex = -1;
 
     if (command >= CMD_KNOB_VOLUME0 && command <= CMD_KNOB_VOLUME7) {
         trackIndex = command - CMD_KNOB_VOLUME0;
 
-        MediaTrack* track = CSurf_TrackFromID(trackIndex + 1, false); // Track IDs start at 1
+        MediaTrack* track = CSurf_TrackFromID(trackIndex, false); // Track IDs start at 1
         if (track) {
             CSurf_SetSurfaceVolume(track, CSurf_OnVolumeChange(track, value / 126.0, true), nullptr);
         }
@@ -111,20 +93,28 @@ void CommandProcessor::handleMixerKnob(unsigned char command, signed char value)
     } else if (command >= CMD_KNOB_PAN0 && command <= CMD_KNOB_PAN7) {
         trackIndex = command - CMD_KNOB_PAN0;
 
-        MediaTrack* track = CSurf_TrackFromID(trackIndex + 1, false);
+        MediaTrack* track = CSurf_TrackFromID(trackIndex, false);
         if (track) {
             CSurf_SetSurfacePan(track, CSurf_OnPanChange(track, value * 0.00098425, true), nullptr);
         }
     }
+    else {
+        handled = false;
+    }
+
+    if (handled) {
+        logCommand(command, value, "mixer knob");
+    }
+
+    return handled;
 }
 
-void CommandProcessor::handleTrackControl(unsigned char command, unsigned char value) {
-    logCommand(command, value, "track");
+bool CommandProcessor::handleTrackControl(unsigned char command, unsigned char value) {
     int trackIndex = static_cast<int>(value);
-    MediaTrack* track = CSurf_TrackFromID(trackIndex + 1, false); // tracks are 1-based
+    MediaTrack* track = CSurf_TrackFromID(trackIndex, false); // tracks are 1-based
 
-    if (!track) return;
-
+    if (!track) return false;
+    bool handled = true;
     switch (command) {
         case CMD_TRACK_SELECTED:
             {
@@ -153,13 +143,20 @@ void CommandProcessor::handleTrackControl(unsigned char command, unsigned char v
             break;
 
         default:
+            handled = false;
             break;
     }
+    
+    if (handled) {
+        logCommand(command, value, "track");
+    }
+
+    return handled;
 }
 
-void CommandProcessor::handleNavigation(unsigned char command, unsigned char value) {
-    logCommand(command, value, "navigation");
+bool CommandProcessor::handleNavigation(unsigned char command, unsigned char value) {
     const int step = convertSignedMidiValue(value); // -1 or 1
+    bool handled = true;
 
     switch (command) {
         case CMD_NAV_TRACKS:
@@ -205,15 +202,22 @@ void CommandProcessor::handleNavigation(unsigned char command, unsigned char val
             break;
 
         default:
+            handled = false;
             break;
     }
+
+    if (handled) {
+        logCommand(command, value, "navigation");
+    }
+
+    return handled;
 }
 
-void CommandProcessor::handleSelectedTrack(unsigned char command, unsigned char value) {
-    logCommand(command, value, "selected track");
+bool CommandProcessor::handleSelectedTrack(unsigned char command, unsigned char value) {
     MediaTrack* track = CSurf_TrackFromID(g_trackInFocus, false);
-    if (!track || g_trackInFocus < 1) return;
+    if (!track || g_trackInFocus < 1) return false;
 
+    bool handled = true;
     switch (command) {
         case CMD_CHANGE_SEL_TRACK_VOLUME:
             {
@@ -246,30 +250,63 @@ void CommandProcessor::handleSelectedTrack(unsigned char command, unsigned char 
             break;
 
         default:
+            handled = false;
             break;
     }
+
+    if (handled) {
+        logCommand(command, value, "selected track");
+    }
+
+    return handled;
 }
 
-void CommandProcessor::handleClear(unsigned char command, unsigned char value)
+bool CommandProcessor::handleClear(unsigned char command, unsigned char value)
 {
-    logCommand(command, value, "clear");
-    Main_OnCommand(40129, 0);
-    Main_OnCommand(41349, 0);
+    if (command == CMD_CLEAR) {
+        Main_OnCommand(40129, 0);
+        Main_OnCommand(41349, 0);
+        logCommand(command, value, "clear");
+        return true;
+    }
+
+    return false;
 }
 
-void CommandProcessor::handleCount(unsigned char command, unsigned char value) {
-    logCommand(command, value, "count");
-    g_KKcountInTriggered = true;
-    g_KKcountInMetroState = (*(int*)GetConfigVar("projmetroen") & 1);
-    Main_OnCommand(41745, 0);
-    *(int*)GetConfigVar("projmetroen") |= 16;
-    CSurf_OnRecord();
+bool CommandProcessor::handleCount(unsigned char command, unsigned char value) {
+    if (command == CMD_COUNT) {
+        g_KKcountInTriggered = true;
+        g_KKcountInMetroState = (*(int*)GetConfigVar("projmetroen") & 1);
+        Main_OnCommand(41745, 0);
+        *(int*)GetConfigVar("projmetroen") |= 16;
+        CSurf_OnRecord();
+        
+        logCommand(command, value, "count");
+        return true;
+    }
+    
+    return false;
+}
+
+void CommandProcessor::toggleAutomationMode() {
+    if (g_trackInFocus == 0) {
+        int mode = GetGlobalAutomationOverride();
+        mode = (mode > 1) ? -1 : 4;
+        SetGlobalAutomationOverride(mode);
+    }
+    else {
+        MediaTrack* track = CSurf_TrackFromID(g_trackInFocus, false);
+        if (!track) return;
+        int mode = *(int*)GetSetMediaTrackInfo(track, "I_AUTOMODE", nullptr);
+        mode = (mode > 1) ? 0 : 4;
+        GetSetMediaTrackInfo(track, "I_AUTOMODE", &mode);
+    }
 }
 
 void CommandProcessor::logCommand(unsigned char command, unsigned char value, const std::string& context)
 {
     std::ostringstream msg;
-    msg << "[Command/" << context << "] "
+    msg << "[context/" << context << "] "
         << getCommandName(command)
         << " (" << static_cast<int>(command) << "), Value: "
         << static_cast<int>(value) << "\n";
