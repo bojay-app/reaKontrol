@@ -6,6 +6,7 @@ set(reakontrol_SOURCES
     ${CMAKE_CURRENT_SOURCE_DIR}/MidiSender.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/CommandProcessor.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/ActionList.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/Constants.cpp
 )
 
 set(reakontrol_HEADERS

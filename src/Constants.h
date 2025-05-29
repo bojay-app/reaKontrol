@@ -1,39 +1,45 @@
-const int BANK_NUM_TRACKS = 8;
-const unsigned char TRTYPE_UNSPEC = 1;
-const unsigned char TRTYPE_MIDI = 2;
-const unsigned char TRTYPE_AUDIO = 3;
-const unsigned char TRTYPE_GROUP = 4;
-const unsigned char TRTYPE_BUS = 5;
-const unsigned char TRTYPE_MASTER = 6;
+// Compile-time constants
+constexpr int BANK_NUM_TRACKS = 8;
+constexpr unsigned char TRTYPE_UNSPEC = 1;
+constexpr unsigned char TRTYPE_MIDI = 2;
+constexpr unsigned char TRTYPE_AUDIO = 3;
+constexpr unsigned char TRTYPE_GROUP = 4;
+constexpr unsigned char TRTYPE_BUS = 5;
+constexpr unsigned char TRTYPE_MASTER = 6;
 
-const bool HIDE_MUTED_BY_SOLO = false; // Meter Setting: If TRUE peak levels will not be shown in Mixer view of muted by solo tracks. If FALSE they will be shown but greyed out.
-const int FLASH_T = 16; // value devided by 30 -> button light flash interval time in Extended Edit Mode
-const int CYCLE_T = 8; // value devided by 30 -> 4D encoder LED cycle interval time in Extended Edit Mode
-const int SCAN_T = 90; // value devided by 30 -> Scan interval time to check for Komplete Kontrol MIDI device plugged in (hot plugging)
-const int CONNECT_N = 2; // number of connection attempts to switch detected keyboard to NiMidi Mode
+constexpr bool HIDE_MUTED_BY_SOLO = false;
+
+constexpr int FLASH_T = 16;
+constexpr int CYCLE_T = 8;
+constexpr int SCAN_T = 90;
+constexpr int CONNECT_N = 2;
+
+constexpr int EXT_EDIT_OFF = 0; // no Extended Edit, Normal Mode. flashTimer = -1 
+constexpr int EXT_EDIT_ON = 1; // Extended Edit 1st stage commands
+constexpr int EXT_EDIT_LOOP = 2; // Extended Edit LOOP
+constexpr int EXT_EDIT_TEMPO = 3; // Extended Edit TEMPO
+constexpr int EXT_EDIT_ACTIONS = 4; // Extended Edit ACTIONS. flashTimer = -4
+
+constexpr int KK_NOT_CONNECTED = 0; // not connected / scanning
+constexpr int KK_MIDI_FOUND = 1; // KK MIDI device found / trying to connect to NIHIA
+constexpr int KK_NIHIA_CONNECTED = 2; // NIHIA HELLO acknowledged / fully connected
 
 #define CSURF_EXT_SETMETRONOME 0x00010002
 
-// State Information (Cache)
-// ToDo: Rather than using glocal variables consider moving these into the BaseSurface class declaration
-static int g_trackInFocus = -1;
-static bool g_anySolo = false;
-static int g_soloStateBank[BANK_NUM_TRACKS] = { 0 };
-static bool g_muteStateBank[BANK_NUM_TRACKS] = { false };
+// Global variables
+extern int g_trackInFocus;
+extern bool g_anySolo;
+extern int g_soloStateBank[BANK_NUM_TRACKS];
+extern bool g_muteStateBank[BANK_NUM_TRACKS];
 
-static bool g_KKcountInTriggered = false; // to discriminate if COUNT IN was requested by keyboard or from Reaper
-static int g_KKcountInMetroState = 0; // to store metronome state when COUNT IN was requested by keyboard
+extern bool g_KKcountInTriggered;
+extern int g_KKcountInMetroState;
 
-// Connection Status State Variables
-const int KK_NOT_CONNECTED = 0; // not connected / scanning
-const int KK_MIDI_FOUND = 1; // KK MIDI device found / trying to connect to NIHIA
-const int KK_NIHIA_CONNECTED = 2; // NIHIA HELLO acknowledged / fully connected
-static int g_connectedState = KK_NOT_CONNECTED; 
+extern int g_extEditMode;
 
-# ifdef CONNECTION_DIAGNOSTICS
-static int log_scanAttempts = 0;
-static int log_connectAttempts = 0;
-# endif
+extern int g_connectedState;
 
-// Global action list structure for ReaKontrol
-const int A_NAME_MAX = 128;
+#ifdef CONNECTION_DIAGNOSTICS
+extern int log_scanAttempts;
+extern int log_connectAttempts;
+#endif

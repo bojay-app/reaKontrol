@@ -1,6 +1,4 @@
 #include "CommandProcessor.h"
-#include "CommandProcessor.h"
-#include "CommandProcessor.h"
 #include "Utils.h"
 #include "Commands.h"
 #include "Constants.h"
@@ -64,7 +62,22 @@ bool CommandProcessor::handleTransport(unsigned char command, unsigned char valu
             Main_OnCommand(40604, 0);
             break;
         case CMD_AUTO:
-            toggleAutomationMode();
+            if (g_trackInFocus <= 0) {
+                int mode = GetGlobalAutomationOverride();
+                mode = (mode > 1) ? -1 : 4;
+                SetGlobalAutomationOverride(mode);
+            }
+            else {
+                MediaTrack* track = CSurf_TrackFromID(g_trackInFocus, false);
+                if (!track) return false;
+                int mode = *(int*)GetSetMediaTrackInfo(track, "I_AUTOMODE", nullptr);
+                mode = (mode > 1) ? 0 : 4;
+                GetSetMediaTrackInfo(track, "I_AUTOMODE", &mode);
+            }
+            break;
+        case CMD_STOP_CLIP:
+            // Enter Extended Edit Mode
+            g_extEditMode = EXT_EDIT_ON;
             break;
         default:
             handled = false;
@@ -286,21 +299,6 @@ bool CommandProcessor::handleCount(unsigned char command, unsigned char value) {
     }
     
     return false;
-}
-
-void CommandProcessor::toggleAutomationMode() {
-    if (g_trackInFocus == 0) {
-        int mode = GetGlobalAutomationOverride();
-        mode = (mode > 1) ? -1 : 4;
-        SetGlobalAutomationOverride(mode);
-    }
-    else {
-        MediaTrack* track = CSurf_TrackFromID(g_trackInFocus, false);
-        if (!track) return;
-        int mode = *(int*)GetSetMediaTrackInfo(track, "I_AUTOMODE", nullptr);
-        mode = (mode > 1) ? 0 : 4;
-        GetSetMediaTrackInfo(track, "I_AUTOMODE", &mode);
-    }
 }
 
 void CommandProcessor::logCommand(unsigned char command, unsigned char value, const std::string& context)
