@@ -442,6 +442,22 @@ protected:
 		unsigned char& command = event->midi_message[1];
 		unsigned char& value = event->midi_message[2];
 
+		// Handshake
+		if (command == CMD_HELLO) {
+        	_protocolVersion = value;
+        if (value > 0) {
+            midiSender->sendCc(CMD_UNDO, 1);
+            midiSender->sendCc(CMD_REDO, 1);
+            midiSender->sendCc(CMD_CLEAR, 1);
+            midiSender->sendCc(CMD_QUANTIZE, 1);
+            _allMixerUpdate();
+            g_connectedState = KK_NIHIA_CONNECTED;
+            Help_Set("ReaKontrol: KK-Keyboard connected", false);
+		}
+
+		return;
+	}
+
 		static CommandProcessor processor(*midiSender);
 		processor.handle(command, value);
 	}

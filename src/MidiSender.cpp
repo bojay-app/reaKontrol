@@ -9,9 +9,6 @@ MidiSender::MidiSender(midi_Output* output) : _output(output) {}
 
 void MidiSender::sendCc(unsigned char command, unsigned char value) {
     if (_output) {
-        std::ostringstream msg;
-        msg << "[MidiSender] CC Command: " << (int)command << ", Value: " << (int)value << "\n";
-        ShowConsoleMsg(msg.str().c_str());
         _output->Send(MIDI_CC, command, value, -1);
     }
 }
