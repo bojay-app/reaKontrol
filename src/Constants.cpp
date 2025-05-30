@@ -9,10 +9,13 @@ namespace {
 }
 
 bool g_debugLogging = false;
+bool dawEnabled = true;
 
 int protocolVersion = 0;
 int bankStart = 0;
 int bankEnd = 0;
+int scanTimer = SCAN_T - 1;
+int connectCount = 0;
 
 int g_trackInFocus = 0;
 bool g_anySolo = false;

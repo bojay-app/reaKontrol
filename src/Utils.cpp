@@ -10,6 +10,8 @@
 #include "Commands.h"
 #include "MidiSender.h"
 #include <sstream>
+#include <reaper/reaper_plugin.h>
+#include <reaper/reaper_plugin_functions.h>
 
 
 static const char* kk_device_names[] = {
@@ -17,6 +19,78 @@ static const char* kk_device_names[] = {
     "MIDIOUT2 (KONTROL S61 MK3)",
     nullptr
 };
+
+static reaper_plugin_info_t* g_rec = nullptr;
+static std::unordered_map<int, std::function<void()>> g_actionCallbacks;
+static std::unordered_map<int, gaccel_register_t> g_registeredActions;
+static std::vector<std::string> g_actionDescriptions; // To store descriptions and maintain their lifetime
+
+// Hook function to handle actions
+static bool HookCommandProc(int command, int flag) {
+    auto it = g_actionCallbacks.find(command);
+    if (it != g_actionCallbacks.end()) {
+        it->second();
+        return true;
+    }
+    return false;
+}
+
+void InitActionRegistry(reaper_plugin_info_t* rec) {
+    g_rec = rec;
+    g_rec->Register("hookcommand", (void*)HookCommandProc);
+}
+
+bool RegisterAction(const ReaKontrolAction& action) {
+    if (!g_rec) return false;
+
+    // Request a unique command ID
+    int commandId = (int)(intptr_t)g_rec->Register("command_id", (void*)action.idstr.c_str());
+    if (commandId == 0) return false;
+
+    // Store the description to maintain its lifetime
+    g_actionDescriptions.push_back(action.description);
+    const char* desc_cstr = g_actionDescriptions.back().c_str();
+
+    // Register the action with a description
+    gaccel_register_t accel = {};
+    accel.accel.cmd = commandId;
+    accel.accel.fVirt = 0; // No default shortcut
+    accel.accel.key = 0;
+    accel.desc = desc_cstr;
+
+    if (!g_rec->Register("gaccel", &accel)) return false;
+
+    // Store the callback and accel for later use
+    g_actionCallbacks[commandId] = action.callback;
+    g_registeredActions[commandId] = accel;
+
+    return true;
+}
+
+void UnregisterAllActions() {
+    if (!g_rec) return;
+
+    for (const auto& pair : g_registeredActions) {
+        g_rec->Register("-gaccel", (void*)&pair.second);
+    }
+    g_rec->Register("-hookcommand", (void*)HookCommandProc);
+    g_actionCallbacks.clear();
+    g_registeredActions.clear();
+    g_actionDescriptions.clear();
+}
+
+void reconnect() {
+    scanTimer = SCAN_T;
+    connectCount = 0;
+    g_connectedState = KK_NOT_CONNECTED;
+    Help_Set("ReaKontrol: Reconnect KK Keyboard (manual trigger)", false);
+}
+
+void disconnect(MidiSender* midiSender)
+{
+    dawEnabled = !dawEnabled;
+    midiSender->sendCc(CMD_GOODBYE, dawEnabled);
+}
 
 int getKkMidiInput() {
     int count = GetNumMIDIInputs();

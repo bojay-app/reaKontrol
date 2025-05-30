@@ -35,38 +35,39 @@ DWORD GetTickCount()
 #include <sstream>
 #define REAPERAPI_IMPLEMENT
 #include "reaKontrol.h"
+#include "NiMidiSurface.h"
+#include "Utils.h"
+
 
 using namespace std;
+class NiMidiSurface;
 
-const char KK_VST_PREFIX[] = "VSTi: Kontakt";
-const char KK_VST3_PREFIX[] = "VST3i: Kontakt"; // lazy cheat to make it the same length as VST2
-const char KK_INSTANCE_PARAM_PREFIX[] = "NIKB";
+const char KK_VST_PREFIX[] = "VSTi: Kontak";
+const char KK_VST3_PREFIX[] = "VST3i: Kontak";
 extern "C" IReaperControlSurface* createNiMidiSurface();
 
 
 const string getKkInstanceName(MediaTrack* track, bool stripPrefix) {
 	int fxCount = TrackFX_GetCount(track);
 	for (int fx = 0; fx < fxCount; ++fx) {
-		// Find the Komplete Kontrol FX.
+		// Find the Kontakt FX.
 		char fxName[sizeof(KK_VST_PREFIX)];
 		TrackFX_GetFXName(track, fx, fxName, sizeof(fxName));
+		debugLog(fxName);
 		if (strcmp(fxName, KK_VST_PREFIX) != 0 &&
 				strcmp(fxName, KK_VST3_PREFIX) != 0) {
 			continue;
 		}
+		
 		// Check for the instance name.
 		// The first parameter should have a name in the form NIKBxx, where xx is a number.
-		char paramName[7];
+		char paramName[40];
 		TrackFX_GetParamName(track, fx, 0, paramName, sizeof(paramName));
-		const size_t prefixLen = sizeof(KK_INSTANCE_PARAM_PREFIX) - 1;
-		if (strncmp(paramName, KK_INSTANCE_PARAM_PREFIX, prefixLen) != 0) {
-			return "";
-		}
-		if (stripPrefix) {
-			return string(paramName).substr(prefixLen);
-		}
+		
+		debugLog(paramName);
 		return paramName;
 	}
+	debugLog("Failed to find fx instance name");
 	return "";
 }
 
@@ -100,24 +101,62 @@ void BaseSurface::Run() {
 IReaperControlSurface* surface = nullptr;
 
 extern "C" {
+	REAPER_PLUGIN_DLL_EXPORT int REAPER_PLUGIN_ENTRYPOINT(REAPER_PLUGIN_HINSTANCE hInstance, reaper_plugin_info_t* rec) {
+		if (rec) {
+			// Load
+			if (rec->caller_version != REAPER_PLUGIN_VERSION || !rec->GetFunc || REAPERAPI_LoadAPI(rec->GetFunc) != 0) {
+				return 0;
+			}
 
-REAPER_PLUGIN_DLL_EXPORT int REAPER_PLUGIN_ENTRYPOINT(REAPER_PLUGIN_HINSTANCE hInstance, reaper_plugin_info_t* rec) {
-	if (rec) {
-		// Load.
-		if (rec->caller_version != REAPER_PLUGIN_VERSION || !rec->GetFunc || REAPERAPI_LoadAPI(rec->GetFunc) != 0) {
-			return 0; // Incompatible.
+			// Keep a pointer to IReaperControlSurface
+			surface = createNiMidiSurface();
+
+			// Register the control surface
+			rec->Register("csurf_inst", (void*)surface);
+			
+			// Initialize the action registry
+			InitActionRegistry(rec);
+
+			// Register custom actions
+			RegisterAction({
+				"ReaKontrol_Reconnect",
+				"ReaKontrol: Reconnect KK Keyboard",
+				[]() {
+					reconnect();
+					Help_Set("ReaKontrol: Reconnect KK Keyboard (manual trigger)", false);
+				}
+			});
+
+			// Cast to NiMidiSurface to access custom methods
+			NiMidiSurface* niSurface = dynamic_cast<NiMidiSurface*>(surface);
+
+			RegisterAction({
+				"ReaKontrol_Disconnect",
+				"ReaKontrol: Disconnect KK Keyboard",
+				[niSurface]() {
+					disconnect(niSurface->GetMidiSender());
+					Help_Set("ReaKontrol: Disconnect KK Keyboard (manual trigger)", false);
+				}
+				});
+
+			return 1;
 		}
-		surface = createNiMidiSurface();
-		rec->Register("csurf_inst", (void*)surface);
-		return 1;
-	} 
-	else {
-		// Unload.
-		if (surface) {
-			delete surface;
+		else {
+			// Unload
+			if (surface) {
+				delete surface;
+				surface = nullptr;
+			}
+
+			// Unregister all actions
+			UnregisterAllActions();
+
+			return 0;
 		}
-		return 0;
 	}
 }
 
+IReaperControlSurface* createNiMidiSurface()
+{
+	return new NiMidiSurface();
 }

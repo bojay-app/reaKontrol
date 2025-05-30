@@ -4,7 +4,7 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 set(reakontrol_SOURCES
     ${CMAKE_CURRENT_SOURCE_DIR}/main.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/nimidi.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/NiMidiSurface.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/Utils.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/MidiSender.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/CommandProcessor.cpp

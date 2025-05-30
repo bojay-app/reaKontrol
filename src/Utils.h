@@ -1,8 +1,32 @@
 #pragma once
 
 #include <string>
+#include <unordered_map>
+#include <functional>
+
 class MidiSender;
 class MediaTrack;
+struct reaper_plugin_info_t;
+
+
+// Structure to hold action information
+struct ReaKontrolAction {
+    std::string idstr;
+    std::string description;
+    std::function<void()> callback;
+};
+
+// Initializes the action registry
+void InitActionRegistry(reaper_plugin_info_t* rec);
+
+// Registers a new action
+bool RegisterAction(const ReaKontrolAction& action);
+
+// Unregisters all actions
+void UnregisterAllActions();
+
+void reconnect();
+void disconnect(MidiSender* midiSender);
 
 // Returns index of matching MIDI input device (or -1 if not found)
 int getKkMidiInput();
