@@ -1,3 +1,6 @@
+set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+
 
 set(reakontrol_SOURCES
     ${CMAKE_CURRENT_SOURCE_DIR}/main.cpp
@@ -8,6 +11,7 @@ set(reakontrol_SOURCES
     ${CMAKE_CURRENT_SOURCE_DIR}/ActionList.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/Constants.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/CommandHandlerTable.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/TrackSelectionDebouncer.cpp
 )
 
 set(reakontrol_HEADERS

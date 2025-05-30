@@ -4,6 +4,7 @@
 #include "Constants.h"
 #include "reaKontrol.h"
 #include "CommandHandlerTable.h"
+#include "ActionList.h"
 #include <string>
 #include <sstream>
 #include <functional>
@@ -46,6 +47,7 @@ CommandProcessor::CommandProcessor(MidiSender& sender, BaseSurface* surface)
     registerHandler(CMD_NAV_BANKS, &CommandProcessor::handleNavBanks);
     registerHandler(CMD_NAV_CLIPS, &CommandProcessor::handleNavClips);
     registerHandler(CMD_PLAY_CLIP, &CommandProcessor::handlePlayClip);
+    registerHandler(CMD_MOVE_LOOP, &CommandProcessor::handleLoopMove);
 
     registerHandler(CMD_CHANGE_SEL_TRACK_VOLUME, &CommandProcessor::handleSelectedTrackVolume);
     registerHandler(CMD_CHANGE_SEL_TRACK_PAN, &CommandProcessor::handleSelectedTrackPan);
@@ -84,7 +86,6 @@ bool CommandProcessor::handleRestart(unsigned char, unsigned char) {
 bool CommandProcessor::handleStop(unsigned char, unsigned char) {
     if (getExtEditMode() != EXT_EDIT_OFF) {
         setExtEditMode(EXT_EDIT_OFF);
-        ShowConsoleMsg("[Mode] Exiting extended mode\n");
         return true;
     }
     CSurf_OnStop();
@@ -202,18 +203,32 @@ bool CommandProcessor::handleTrackSelected(unsigned char, unsigned char value) {
 }
 
 bool CommandProcessor::handleTrackMuted(unsigned char, unsigned char value) {
-    MediaTrack* track = CSurf_TrackFromID(value, false);
-    return toggleTrackMute(track);
+    if (getExtEditMode() == EXT_EDIT_ACTIONS) {
+        callAction(value);
+        return true;
+    }
+    else {
+        MediaTrack* track = CSurf_TrackFromID(value, false);
+        return toggleTrackMute(track);
+    }
 }
 
 bool CommandProcessor::handleTrackSoloed(unsigned char, unsigned char value) {
-    MediaTrack* track = CSurf_TrackFromID(value, false);
-    return toggleTrackSolo(track);
+    if (getExtEditMode() == EXT_EDIT_ACTIONS) {
+        callAction(value);
+        return true;
+    }
+    else {
+        MediaTrack* track = CSurf_TrackFromID(value, false);
+        return toggleTrackSolo(track);
+    }
 }
 
 // ---- Navigation Handlers ----
 
 bool CommandProcessor::handleNavTracks(unsigned char, unsigned char value) {
+    if (getExtEditMode() == EXT_EDIT_ACTIONS) { return true; }
+
     int step = convertSignedMidiValue(value);
     int newFocus = g_trackInFocus + step;
     int numTracks = CSurf_NumTracks(false);
@@ -234,6 +249,8 @@ bool CommandProcessor::handleNavTracks(unsigned char, unsigned char value) {
 }
 
 bool CommandProcessor::handleNavBanks(unsigned char, unsigned char value) {
+    if (getExtEditMode() == EXT_EDIT_ACTIONS) { return true; }
+
     int step = convertSignedMidiValue(value);
     int numTracks = CSurf_NumTracks(false);
     int newBankStart = g_trackInFocus + step * BANK_NUM_TRACKS;
@@ -256,29 +273,67 @@ bool CommandProcessor::handleNavClips(unsigned char, unsigned char value) {
 }
 
 bool CommandProcessor::handlePlayClip(unsigned char, unsigned char) {
-    int numTracks = CSurf_NumTracks(false);
-    if (g_trackInFocus < 1 || g_trackInFocus > numTracks) return false;
+    if (getExtEditMode() == EXT_EDIT_ON) {
+        setExtEditMode(EXT_EDIT_ACTIONS);
+        showActionList(&midiSender);
+    }
+    else if (getExtEditMode() == EXT_EDIT_ACTIONS) {
+        allMixerUpdate(&midiSender);
+        peakMixerUpdate(&midiSender);
+        setExtEditMode(EXT_EDIT_OFF);
+    }
+    else {
+        RefocusBank();
+        setExtEditMode(EXT_EDIT_OFF);
+    }
+    return true;
+}
 
-    MediaTrack* track = CSurf_TrackFromID(g_trackInFocus, false);
-    if (!track) return false;
-
-    int sel = 0;
-    for (int i = 0; i <= numTracks; ++i)
-        GetSetMediaTrackInfo(CSurf_TrackFromID(i, false), "I_SELECTED", &sel);
-
-    sel = 1;
-    GetSetMediaTrackInfo(track, "I_SELECTED", &sel);
-    Main_OnCommand(40913, 0);
-    SetMixerScroll(track);
+bool CommandProcessor::handleLoopMove(unsigned char, unsigned char value) {
+    if (value <= 63) {
+        Main_OnCommand(40038, 0); // Shift time selection right (by its own length)
+    }
+    else {
+        Main_OnCommand(40037, 0); // Shift time selection left (by its own length)
+    }
     return true;
 }
 
 // ---- Selected Track Knob Handlers ----
 
 bool CommandProcessor::handleSelectedTrackVolume(unsigned char, unsigned char value) {
-    if (g_trackInFocus < 1) return false;
-    MediaTrack* track = CSurf_TrackFromID(g_trackInFocus, false);
-    return adjustTrackVolume(track, convertSignedMidiValue(value));
+    if (getExtEditMode() == EXT_EDIT_ON) {
+        // Scroll playhead to next/previous grid division
+        if (value <= 63) {
+            Main_OnCommand(40647, 0); // move cursor right 1 grid division (no seek)
+        }
+        else {
+            Main_OnCommand(40646, 0); // move cursor left 1 grid division (no seek)
+        }
+        return true;
+    } else if (getExtEditMode() == EXT_EDIT_LOOP) {
+        double initCursorPos = GetCursorPosition();
+        double startLoop;
+        double endLoop;
+        GetSet_LoopTimeRange(false, true, &startLoop, &endLoop, false); // get looping section start and end points
+        SetEditCurPos(endLoop, false, false);
+        if (value <= 63) {
+            Main_OnCommand(40841, 0); // Move edit cursor forward 1 beat (no seek)
+        }
+        else {
+            Main_OnCommand(40842, 0); // Move edit cursor back 1 beat (no seek)
+        }
+        endLoop = GetCursorPosition();
+        GetSet_LoopTimeRange(true, true, &startLoop, &endLoop, false); // set looping section start and end points
+        SetEditCurPos(initCursorPos, false, false);
+        return true;
+    }
+    else {
+        // Adjust selected track vol (default 0 master track)
+        if (getExtEditMode() == EXT_EDIT_ACTIONS) { return true; }
+        MediaTrack* track = CSurf_TrackFromID(g_trackInFocus, false);
+        return adjustTrackVolume(track, convertSignedMidiValue(value));
+    }
 }
 
 bool CommandProcessor::handleSelectedTrackPan(unsigned char, unsigned char value) {
@@ -288,12 +343,15 @@ bool CommandProcessor::handleSelectedTrackPan(unsigned char, unsigned char value
 }
 
 bool CommandProcessor::handleSelectedTrackMute(unsigned char, unsigned char) {
+    if (getExtEditMode() == EXT_EDIT_ACTIONS) { return true; }
     if (g_trackInFocus < 1) return false;
     MediaTrack* track = CSurf_TrackFromID(g_trackInFocus, false);
     return toggleTrackMute(track);
 }
 
 bool CommandProcessor::handleSelectedTrackSolo(unsigned char, unsigned char) {
+    if (getExtEditMode() == EXT_EDIT_ACTIONS) { return true; }
+
     if (g_trackInFocus < 1) return false;
     MediaTrack* track = CSurf_TrackFromID(g_trackInFocus, false);
     return toggleTrackSolo(track);
@@ -309,6 +367,7 @@ bool CommandProcessor::handleClear(unsigned char, unsigned char) {
         }
     }
     else {
+        // Delete active takes. Typically, when recording an item in loop mode this allows to remove take by take until the entire item is removed.
         Main_OnCommand(40129, 0); // Delete active take
         Main_OnCommand(41349, 0); // Remove empty take lane
     }
@@ -367,7 +426,7 @@ void CommandProcessor::LogCommand(unsigned char command, unsigned char value, co
         << getCommandName(command)
         << " (" << static_cast<int>(command) << "), Value: "
         << static_cast<int>(value) << "\n";
-    ShowConsoleMsg(msg.str().c_str());
+    debugLog(msg);
 }
 
 

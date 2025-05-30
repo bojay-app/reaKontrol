@@ -2,16 +2,19 @@
 #include "Commands.h"
 #include <reaper/reaper_plugin_functions.h>
 #include <sstream>
+#include "Utils.h"
 
 namespace {
     int extEditMode = EXT_EDIT_OFF; // private to this translation unit
 }
 
+bool g_debugLogging = false;
+
 int protocolVersion = 0;
 int bankStart = 0;
 int bankEnd = 0;
 
-int g_trackInFocus = -1;
+int g_trackInFocus = 0;
 bool g_anySolo = false;
 int g_soloStateBank[BANK_NUM_TRACKS] = { 0 };
 bool g_muteStateBank[BANK_NUM_TRACKS] = { false };
@@ -27,7 +30,7 @@ void setExtEditMode(int newMode) {
     if (extEditMode != newMode) {
         std::ostringstream msg;
         msg << "[ExtEditMode] '" << getConstantName(extEditMode) << "' -> '" << getConstantName(newMode) << "'\n";
-        ShowConsoleMsg(msg.str().c_str());
+        debugLog(msg);
         extEditMode = newMode;
     }
 }

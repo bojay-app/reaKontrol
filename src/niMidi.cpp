@@ -19,6 +19,7 @@
 #include "ActionList.h"
 #include "MidiSender.h"
 #include "CommandProcessor.h"
+#include "TrackSelectionDebouncer.h"
 
 using namespace std;
 
@@ -143,15 +144,15 @@ public:
 		else if (g_connectedState == KK_NIHIA_CONNECTED) {
 			/*----------------- We are successfully connected -----------------*/
 			if (!g_actionListLoaded) {
-				loadActionList();
+				loadConfigFile();
 				g_actionListLoaded = true;
 			}
 		
-			if (getExtEditMode()  == EXT_EDIT_OFF) {
-				if (flashTimer != -1) { // are we returning from one of the Extended Edit Modes?
+			if (getExtEditMode() == EXT_EDIT_OFF) {
+				if (flashTimer != -1) {
 					this->_updateTransportAndNavButtons();
 					allMixerUpdate(midiSender);
-					this->_peakMixerUpdate();
+					peakMixerUpdate(midiSender);
 
 					lightOn = false;
 					flashTimer = -1;
@@ -174,7 +175,6 @@ public:
 					midiSender->sendCc(CMD_REC, onOff);
 					midiSender->sendCc(CMD_CLEAR, onOff);
 					midiSender->sendCc(CMD_LOOP, onOff);
-					midiSender->sendCc(CMD_METRO, onOff);
 				}
 			}
 			else if (getExtEditMode()  == EXT_EDIT_LOOP) {
@@ -280,9 +280,18 @@ public:
 					cyclePos = 0;
 				}
 			}
+			
 			if (getExtEditMode() != EXT_EDIT_ACTIONS) {
-				this->_peakMixerUpdate();
+				peakMixerUpdate(midiSender);
 			}
+
+			// Fallback to master track when no track is selected
+			if (trackDebouncer.shouldFallbackToMaster()) {
+				g_trackInFocus = 0; // master track
+				debugLog("[Debounce] Fallback to master track (no selection)");
+				trackDebouncer.reset(); // clean after decision
+			}
+
 			BaseSurface::Run();
 		}
 	}
@@ -363,19 +372,23 @@ public:
 		// - changed track selection and KK instance focus
 		// - changed automation mode
 		// - changed track name
-
+		
+		// This function is called for every track, so 4 tracks will call 4 times
 		// Using SetSurfaceSelected() rather than OnTrackSelection() or SetTrackTitle():
 		// SetSurfaceSelected() is less economical because it will be called multiple times when something changes (also for unselecting tracks, change of any record arm, change of any auto mode, change of name, ...).
 		// However, SetSurfaceSelected() is the more robust choice because of: https://forum.cockos.com/showpost.php?p=2138446&postcount=15
 		// A good solution for efficiency is to only evaluate messages with (selected == true).
 		if (g_connectedState != KK_NIHIA_CONNECTED) return;
+		int id = CSurf_TrackToID(track, false);
+		int numInBank = id % BANK_NUM_TRACKS;
+		trackDebouncer.update(id, selected);
+		
+		// ---------------- Track Selection and Instance Focus ----------------
 		if (selected) {
-			int id = CSurf_TrackToID(track, false);
-			int numInBank = id % BANK_NUM_TRACKS;
-			// ---------------- Track Selection and Instance Focus ----------------
 			if (id != g_trackInFocus) {
 				// Track selection has changed
 				g_trackInFocus = id;
+				debugLog("trackInFocus updated to: " + std::to_string(g_trackInFocus));
 				int oldBankStart = bankStart;
 				bankStart = id - numInBank;
 				if (bankStart != oldBankStart) {
@@ -426,7 +439,7 @@ public:
 			// AUTO = ON: touch, write, latch or latch preview
 			// AUTO = OFF: trim or read
 			int globalAutoMode = GetGlobalAutomationOverride();
-			if ((id == g_trackInFocus) && (globalAutoMode == -1)) {
+			if ((id > 0) && (globalAutoMode == -1)) {
 				// Check automation mode of currently focused track
 				int autoMode = *(int*)GetSetMediaTrackInfo(track, "I_AUTOMODE", nullptr);
 				midiSender->sendCc(CMD_AUTO, autoMode > 1 ? 1 : 0);
@@ -605,73 +618,7 @@ protected:
 private:
 	MidiSender* midiSender = nullptr;
 	CommandProcessor* processor = nullptr;
-
-	void _peakMixerUpdate() {
-		// Peak meters. Note: Reaper reports peak, NOT VU	
-
-		// ToDo: Peak Hold in KK display shall be erased immediately when changing bank
-		// ToDo: Peak Hold in KK display shall be erased after decay time t when track muted or no signal.
-		// ToDo: Explore the effect of sending CMD_SEL_TRACK_PARAMS_CHANGED after sending CMD_TRACK_VU
-		// ToDo: Consider caching and not sending anything via SysEx if no values have changed.
-
-		// Meter information is sent to KK as array (string of chars) for all 16 channels (8 x stereo) of one bank.
-		// A value of 0 will result in stopping to refresh meters further to right as it is interpretated as "end of string".
-		// peakBank[0]..peakBank[31] are used for data. The array needs one additional last char peakBank[32] set as "end of string" marker.
-		static char peakBank[(BANK_NUM_TRACKS * 2) + 1];
-		int j = 0;
-		double peakValue = 0;
-		int numInBank = 0;
-		for (int id = bankStart; id <= bankEnd; ++id, ++numInBank) {
-			MediaTrack* track = CSurf_TrackFromID(id, false);
-			if (!track) {
-				break;
-			}
-			j = 2 * numInBank;
-			if (HIDE_MUTED_BY_SOLO) {
-				// If any track is soloed then only soloed tracks and the master show peaks (irrespective of their mute state)
-				if (g_anySolo) {
-					if ((g_soloStateBank[numInBank] == 0) && (((numInBank != 0) && (bankStart == 0)) || (bankStart != 0))) {
-						peakBank[j] = 1;
-						peakBank[j + 1] = 1;
-					}
-					else {
-						peakValue = Track_GetPeakInfo(track, 0); // left channel
-						peakBank[j] = volToChar_KkMk2(peakValue); // returns value between 1 and 127
-						peakValue = Track_GetPeakInfo(track, 1); // right channel
-						peakBank[j + 1] = volToChar_KkMk2(peakValue); // returns value between 1 and 127
-					}
-				}
-				// If no tracks are soloed then muted tracks shall show no peaks
-				else {
-					if (g_muteStateBank[numInBank]) {
-						peakBank[j] = 1;
-						peakBank[j + 1] = 1;
-					}
-					else {
-						peakValue = Track_GetPeakInfo(track, 0); // left channel
-						peakBank[j] = volToChar_KkMk2(peakValue); // returns value between 1 and 127
-						peakValue = Track_GetPeakInfo(track, 1); // right channel
-						peakBank[j + 1] = volToChar_KkMk2(peakValue); // returns value between 1 and 127					
-					}
-				}
-			}
-			else {
-				// Muted tracks that are NOT soloed shall show no peaks. Tracks muted by solo show peaks but they appear greyed out.
-				if ((g_soloStateBank[numInBank] == 0) && (g_muteStateBank[numInBank])) {
-					peakBank[j] = 1;
-					peakBank[j + 1] = 1;
-				}
-				else {
-					peakValue = Track_GetPeakInfo(track, 0); // left channel
-					peakBank[j] = volToChar_KkMk2(peakValue); // returns value between 1 and 127
-					peakValue = Track_GetPeakInfo(track, 1); // right channel
-					peakBank[j + 1] = volToChar_KkMk2(peakValue); // returns value between 1 and 127					
-				}
-			}
-		}
-		peakBank[j + 2] = '\0'; // end of string (no tracks available further to the right)
-		midiSender->sendSysex(CMD_TRACK_VU, 2, 0, peakBank);
-	}
+	TrackSelectionDebouncer trackDebouncer;
 
 	void _updateTransportAndNavButtons() {
 		midiSender->sendCc(CMD_CLEAR, 1);

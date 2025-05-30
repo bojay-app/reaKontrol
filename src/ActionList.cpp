@@ -4,6 +4,8 @@
 #include <sstream>
 #include "Constants.h"
 #include "Commands.h"
+#include <algorithm>
+#include <cctype>
 
 #ifdef __APPLE__
     #define strcpy_s(dest,dest_sz, src) strlcpy(dest,src, dest_sz)
@@ -15,13 +17,22 @@
 aList g_actionList;
 bool g_actionListLoaded = false; // action list will be populated from ini file after successful connection to allow Reaper main thread to load all extensions first
 
-void loadActionList() {
+std::string toLowerTrimmed(const char* str) {
+    std::string result(str);
+    result.erase(0, result.find_first_not_of(" \t\n\r"));
+    result.erase(result.find_last_not_of(" \t\n\r") + 1);
+    std::transform(result.begin(), result.end(), result.begin(), ::tolower);
+    return result;
+}
+
+void loadConfigFile() {
     const char* pathname = GetResourcePath();
     std::string s_filename(pathname);
     s_filename += REAKONTROL_INI;
     s_filename.push_back('\0');
     pathname = &s_filename[0];
 
+    // Add default ini
     if (!file_exists(pathname)) {
         WritePrivateProfileString("reakontrol_actions", "action_0_id", "40001", pathname);
         if (!WritePrivateProfileString("reakontrol_actions", "action_0_name", "Insert Default Track", pathname)) {
@@ -33,42 +44,59 @@ void loadActionList() {
         }
     }
 
+    // Read ini
     if (file_exists(pathname)) {
-        std::string s_keyName;
-        char* key;
-        char stringOut[128] = {};
-        int stringOut_sz = sizeof(stringOut);
-
-        for (int i = 0; i <= 7; ++i) {
-            s_keyName = "action_" + std::to_string(i) + "_ID";
-            s_keyName.push_back('\0');
-            key = &s_keyName[0];
-            GetPrivateProfileString("reakontrol_actions", key, nullptr, stringOut, stringOut_sz, pathname);
-
-            if (stringOut[0] != '\0') {
-                g_actionList.ID[i] = NamedCommandLookup(stringOut);
-                if (g_actionList.ID[i]) {
-                    s_keyName = "action_" + std::to_string(i) + "_name";
-                    s_keyName.push_back('\0');
-                    key = &s_keyName[0];
-                    GetPrivateProfileString("reakontrol_actions", key, nullptr, stringOut, stringOut_sz, pathname);
-                    if (stringOut[0] != '\0') {
-                        strcpy_s(g_actionList.name[i], 128, stringOut);
-                    } else {
-                        g_actionList.name[i][0] = '\0';
-                    }
-                }
-            } else {
-                g_actionList.ID[i] = 0;
-                g_actionList.name[i][0] = '\0';
-            }
-        }
+        loadReaKontrolSettings(pathname);
+        loadActions(pathname);
     } else {
         std::ostringstream s;
         s << "Komplete Kontrol Keyboard successfully connected but configuration file not found! Please read manual how to configure custom actions via the configuration file:\n\n"
           << s_filename;
         ShowMessageBox(s.str().c_str(), "ReaKontrol", 0);
         g_actionList.ID[0] = -1;
+    }
+}
+
+void loadReaKontrolSettings(const std::string& iniPath) {
+    char buffer[64] = { 0 };
+    GetPrivateProfileString("settings", "debug", "false", buffer, sizeof(buffer), iniPath.c_str());
+
+    std::string val = toLowerTrimmed(buffer);
+    g_debugLogging = (val == "true" || val == "1");
+}
+
+void loadActions(const char* pathname)
+{
+    std::string s_keyName;
+    char* key;
+    char stringOut[128] = {};
+    int stringOut_sz = sizeof(stringOut);
+
+    for (int i = 0; i <= 7; ++i) {
+        s_keyName = "action_" + std::to_string(i) + "_ID";
+        s_keyName.push_back('\0');
+        key = &s_keyName[0];
+        GetPrivateProfileString("reakontrol_actions", key, nullptr, stringOut, stringOut_sz, pathname);
+
+        if (stringOut[0] != '\0') {
+            g_actionList.ID[i] = NamedCommandLookup(stringOut);
+            if (g_actionList.ID[i]) {
+                s_keyName = "action_" + std::to_string(i) + "_name";
+                s_keyName.push_back('\0');
+                key = &s_keyName[0];
+                GetPrivateProfileString("reakontrol_actions", key, nullptr, stringOut, stringOut_sz, pathname);
+                if (stringOut[0] != '\0') {
+                    strcpy_s(g_actionList.name[i], 128, stringOut);
+                }
+                else {
+                    g_actionList.name[i][0] = '\0';
+                }
+            }
+        }
+        else {
+            g_actionList.ID[i] = 0;
+            g_actionList.name[i][0] = '\0';
+        }
     }
 }
 
@@ -117,6 +145,7 @@ void showActionList(MidiSender* midiSender) {
 }
 
 void callAction(unsigned char actionSlot) {
+    setExtEditMode(EXT_EDIT_OFF);
     if (g_actionList.ID[actionSlot]) {
         Main_OnCommand(g_actionList.ID[actionSlot], 0);
     }

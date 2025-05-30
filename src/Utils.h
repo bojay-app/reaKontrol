@@ -33,3 +33,7 @@ bool adjustTrackPan(MediaTrack* track, signed char midiDelta);
 
 bool toggleTrackMute(MediaTrack* track);
 bool toggleTrackSolo(MediaTrack* track);
+void peakMixerUpdate(MidiSender* midiSender);
+
+void debugLog(const std::string& msg);
+void debugLog(const std::ostringstream& msgStream);

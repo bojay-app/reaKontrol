@@ -9,6 +9,7 @@
 #include "Constants.h"
 #include "Commands.h"
 #include "MidiSender.h"
+#include <sstream>
 
 
 static const char* kk_device_names[] = {
@@ -248,4 +249,81 @@ bool toggleTrackSolo(MediaTrack* track) {
     int solo = *(int*)GetSetMediaTrackInfo(track, "I_SOLO", nullptr);
     CSurf_OnSoloChange(track, solo == 0 ? 1 : 0);
     return true;
+}
+
+void peakMixerUpdate(MidiSender* midiSender) {
+    // Peak meters. Note: Reaper reports peak, NOT VU	
+
+    // ToDo: Peak Hold in KK display shall be erased immediately when changing bank
+    // ToDo: Peak Hold in KK display shall be erased after decay time t when track muted or no signal.
+    // ToDo: Explore the effect of sending CMD_SEL_TRACK_PARAMS_CHANGED after sending CMD_TRACK_VU
+    // ToDo: Consider caching and not sending anything via SysEx if no values have changed.
+
+    // Meter information is sent to KK as array (string of chars) for all 16 channels (8 x stereo) of one bank.
+    // A value of 0 will result in stopping to refresh meters further to right as it is interpretated as "end of string".
+    // peakBank[0]..peakBank[31] are used for data. The array needs one additional last char peakBank[32] set as "end of string" marker.
+    static char peakBank[(BANK_NUM_TRACKS * 2) + 1];
+    int j = 0;
+    double peakValue = 0;
+    int numInBank = 0;
+    for (int id = bankStart; id <= bankEnd; ++id, ++numInBank) {
+        MediaTrack* track = CSurf_TrackFromID(id, false);
+        if (!track) {
+            break;
+        }
+        j = 2 * numInBank;
+        if (HIDE_MUTED_BY_SOLO) {
+            // If any track is soloed then only soloed tracks and the master show peaks (irrespective of their mute state)
+            if (g_anySolo) {
+                if ((g_soloStateBank[numInBank] == 0) && (((numInBank != 0) && (bankStart == 0)) || (bankStart != 0))) {
+                    peakBank[j] = 1;
+                    peakBank[j + 1] = 1;
+                }
+                else {
+                    peakValue = Track_GetPeakInfo(track, 0); // left channel
+                    peakBank[j] = volToChar_KkMk2(peakValue); // returns value between 1 and 127
+                    peakValue = Track_GetPeakInfo(track, 1); // right channel
+                    peakBank[j + 1] = volToChar_KkMk2(peakValue); // returns value between 1 and 127
+                }
+            }
+            // If no tracks are soloed then muted tracks shall show no peaks
+            else {
+                if (g_muteStateBank[numInBank]) {
+                    peakBank[j] = 1;
+                    peakBank[j + 1] = 1;
+                }
+                else {
+                    peakValue = Track_GetPeakInfo(track, 0); // left channel
+                    peakBank[j] = volToChar_KkMk2(peakValue); // returns value between 1 and 127
+                    peakValue = Track_GetPeakInfo(track, 1); // right channel
+                    peakBank[j + 1] = volToChar_KkMk2(peakValue); // returns value between 1 and 127					
+                }
+            }
+        }
+        else {
+            // Muted tracks that are NOT soloed shall show no peaks. Tracks muted by solo show peaks but they appear greyed out.
+            if ((g_soloStateBank[numInBank] == 0) && (g_muteStateBank[numInBank])) {
+                peakBank[j] = 1;
+                peakBank[j + 1] = 1;
+            }
+            else {
+                peakValue = Track_GetPeakInfo(track, 0); // left channel
+                peakBank[j] = volToChar_KkMk2(peakValue); // returns value between 1 and 127
+                peakValue = Track_GetPeakInfo(track, 1); // right channel
+                peakBank[j + 1] = volToChar_KkMk2(peakValue); // returns value between 1 and 127					
+            }
+        }
+    }
+    peakBank[j + 2] = '\0'; // end of string (no tracks available further to the right)
+    midiSender->sendSysex(CMD_TRACK_VU, 2, 0, peakBank);
+}
+
+void debugLog(const std::string& msg)
+{
+    if (!g_debugLogging) return;
+    ShowConsoleMsg((msg + "\n").c_str());
+}
+
+void debugLog(const std::ostringstream& msgStream) {
+    debugLog(msgStream.str());
 }

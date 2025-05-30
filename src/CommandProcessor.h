@@ -45,6 +45,7 @@ private:
     bool handleNavBanks(unsigned char, unsigned char);
     bool handleNavClips(unsigned char, unsigned char);
     bool handlePlayClip(unsigned char, unsigned char);
+    bool handleLoopMove(unsigned char, unsigned char);
 
     bool handleSelectedTrackVolume(unsigned char, unsigned char);
     bool handleSelectedTrackPan(unsigned char, unsigned char);
