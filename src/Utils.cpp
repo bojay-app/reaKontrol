@@ -77,17 +77,15 @@ void UnregisterAllActions() {
     g_actionDescriptions.clear();
 }
 
-void reconnect() {
-    g_connectedState = KK_NOT_CONNECTED;
-    scanTimer = SCAN_T - 1;
-    connectCount = 0;
-    Help_Set("ReaKontrol: Reconnect KK Keyboard (manual trigger)", false);
-}
-
-void disconnect(MidiSender* midiSender)
-{
+void toggleDAW(MidiSender* midiSender) {
     dawEnabled = !dawEnabled;
-    midiSender->sendCc(CMD_GOODBYE, dawEnabled);
+    if (dawEnabled) {
+        midiSender->sendCc(CMD_HELLO, 2);
+    }
+    else {
+        midiSender->sendCc(CMD_GOODBYE, 0);
+    }
+    
 }
 
 int getKkMidiInput() {

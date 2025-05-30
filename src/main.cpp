@@ -115,27 +115,17 @@ extern "C" {
 			// Initialize the action registry
 			InitActionRegistry(rec);
 
-			// Register custom actions
-			RegisterAction({
-				"ReaKontrol_Reconnect",
-				"ReaKontrol: Reconnect KK Keyboard",
-				[]() {
-					reconnect();
-					Help_Set("ReaKontrol: Reconnect KK Keyboard (manual trigger)", false);
-				}
-			});
-
 			// Cast to NiMidiSurface to access custom methods
 			NiMidiSurface* niSurface = dynamic_cast<NiMidiSurface*>(surface);
 
+			// Register custom actions
 			RegisterAction({
-				"ReaKontrol_Disconnect",
-				"ReaKontrol: Disconnect KK Keyboard",
+				"ReaKontrol_Toggle_DAW",
+				"ReaKontrol: Toggle KK Keyboard DAW Control",
 				[niSurface]() {
-					disconnect(niSurface->GetMidiSender());
-					Help_Set("ReaKontrol: Disconnect KK Keyboard (manual trigger)", false);
+					toggleDAW(niSurface->GetMidiSender());
 				}
-				});
+			});
 
 			return 1;
 		}
