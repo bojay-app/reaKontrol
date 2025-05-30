@@ -61,12 +61,7 @@ const std::string getKkInstanceName(MediaTrack* track, bool stripPrefix) {
 			continue;
 		}
 
-		// Check the first parameter for the instance name
-		char paramName[512];
-		TrackFX_GetParamName(track, fx, 0, paramName, sizeof(paramName));
-		debugLog(std::string("Param Name: ") + paramName);
-
-		return std::string(paramName);
+		return std::string(fxName);
 	}
 
 	debugLog("Failed to find Kontakt instance name");

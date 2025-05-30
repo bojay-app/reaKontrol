@@ -13,7 +13,6 @@
 #include <reaper/reaper_plugin.h>
 #include <reaper/reaper_plugin_functions.h>
 
-
 static const char* kk_device_names[] = {
     "MIDIIN2 (KONTROL S61 MK3)",
     "MIDIOUT2 (KONTROL S61 MK3)"
@@ -265,9 +264,9 @@ void allMixerUpdate(MidiSender* midiSender) {
 }
 
 void metronomeUpdate(MidiSender* midiSender) {
-		// Actively poll the metronome status on project tab changes
-		midiSender->sendCc(CMD_METRO, getMetronomeState());
-	}
+	// Actively poll the metronome status on project tab changes
+	midiSender->sendCc(CMD_METRO, getMetronomeState());
+}
 
 int getMetronomeState() {
     return (*(int*)GetConfigVar("projmetroen") & 1);

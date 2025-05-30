@@ -8,7 +8,6 @@ class MidiSender;
 class MediaTrack;
 struct reaper_plugin_info_t;
 
-
 // Structure to hold action information
 struct ReaKontrolAction {
     std::string idstr;
