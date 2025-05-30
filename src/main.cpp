@@ -42,34 +42,37 @@ DWORD GetTickCount()
 using namespace std;
 class NiMidiSurface;
 
-const char KK_VST_PREFIX[] = "VSTi: Kontak";
-const char KK_VST3_PREFIX[] = "VST3i: Kontak";
+const char KK_VST_PREFIX[] = "VSTi: Kontakt";
+const char KK_VST3_PREFIX[] = "VST3i: Kontakt";
+
 extern "C" IReaperControlSurface* createNiMidiSurface();
 
-
-const string getKkInstanceName(MediaTrack* track, bool stripPrefix) {
+const std::string getKkInstanceName(MediaTrack* track, bool stripPrefix) {
 	int fxCount = TrackFX_GetCount(track);
+
 	for (int fx = 0; fx < fxCount; ++fx) {
-		// Find the Kontakt FX.
-		char fxName[sizeof(KK_VST_PREFIX)];
+		// Use a sufficiently large buffer
+		char fxName[512];
 		TrackFX_GetFXName(track, fx, fxName, sizeof(fxName));
-		debugLog(fxName);
-		if (strcmp(fxName, KK_VST_PREFIX) != 0 &&
-				strcmp(fxName, KK_VST3_PREFIX) != 0) {
+		debugLog(std::string("FX Name: ") + fxName);
+
+		// Look for Kontakt plugins (VST or VST3)
+		if (!strstr(fxName, KK_VST_PREFIX) && !strstr(fxName, KK_VST3_PREFIX)) {
 			continue;
 		}
-		
-		// Check for the instance name.
-		// The first parameter should have a name in the form NIKBxx, where xx is a number.
-		char paramName[40];
+
+		// Check the first parameter for the instance name
+		char paramName[512];
 		TrackFX_GetParamName(track, fx, 0, paramName, sizeof(paramName));
-		
-		debugLog(paramName);
-		return paramName;
+		debugLog(std::string("Param Name: ") + paramName);
+
+		return std::string(paramName);
 	}
-	debugLog("Failed to find fx instance name");
+
+	debugLog("Failed to find Kontakt instance name");
 	return "";
 }
+
 
 BaseSurface::BaseSurface() {
 	// ToDo: ???

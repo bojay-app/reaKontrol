@@ -16,8 +16,7 @@
 
 static const char* kk_device_names[] = {
     "MIDIIN2 (KONTROL S61 MK3)",
-    "MIDIOUT2 (KONTROL S61 MK3)",
-    nullptr
+    "MIDIOUT2 (KONTROL S61 MK3)"
 };
 
 static reaper_plugin_info_t* g_rec = nullptr;
@@ -80,9 +79,9 @@ void UnregisterAllActions() {
 }
 
 void reconnect() {
-    scanTimer = SCAN_T;
-    connectCount = 0;
     g_connectedState = KK_NOT_CONNECTED;
+    scanTimer = SCAN_T - 1;
+    connectCount = 0;
     Help_Set("ReaKontrol: Reconnect KK Keyboard (manual trigger)", false);
 }
 
