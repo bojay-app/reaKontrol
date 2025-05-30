@@ -221,3 +221,31 @@ void* GetConfigVar(const char* cVar) { // Copyright (c) 2010 and later Tim Payne
     }
     return p;
 }
+
+bool adjustTrackVolume(MediaTrack* track, signed char midiDelta) {
+    if (!track) return false;
+    double step = (abs(midiDelta) > 38 ? 1.0 : 0.1) * (midiDelta >= 0 ? 1 : -1);
+    CSurf_SetSurfaceVolume(track, CSurf_OnVolumeChange(track, step, true), nullptr);
+    return true;
+}
+
+bool adjustTrackPan(MediaTrack* track, signed char midiDelta) {
+    if (!track) return false;
+    double step = midiDelta * 0.00098425;
+    CSurf_SetSurfacePan(track, CSurf_OnPanChange(track, step, true), nullptr);
+    return true;
+}
+
+bool toggleTrackMute(MediaTrack* track) {
+    if (!track) return false;
+    bool muted = *(bool*)GetSetMediaTrackInfo(track, "B_MUTE", nullptr);
+    CSurf_OnMuteChange(track, muted ? 0 : 1);
+    return true;
+}
+
+bool toggleTrackSolo(MediaTrack* track) {
+    if (!track) return false;
+    int solo = *(int*)GetSetMediaTrackInfo(track, "I_SOLO", nullptr);
+    CSurf_OnSoloChange(track, solo == 0 ? 1 : 0);
+    return true;
+}

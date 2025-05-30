@@ -71,7 +71,7 @@ bool handleQuantize(unsigned char command, unsigned char value) {
 }
 
 bool handleAuto(unsigned char command, unsigned char value) {
-    if (g_trackInFocus <= 0) {
+    if (g_trackInFocus < 1) {
         int mode = GetGlobalAutomationOverride();
         mode = (mode > 1) ? -1 : 4;
         SetGlobalAutomationOverride(mode);
@@ -96,22 +96,20 @@ bool handleEnterExtendedMode(unsigned char command, unsigned char value) {
 
 bool handleMixerKnob(unsigned char command, unsigned char value) {
     int trackIndex = -1;
+    MediaTrack* track = nullptr;
+    signed char delta = convertSignedMidiValue(value);
+
     if (command >= CMD_KNOB_VOLUME0 && command <= CMD_KNOB_VOLUME7) {
         trackIndex = command - CMD_KNOB_VOLUME0;
-        MediaTrack* track = CSurf_TrackFromID(trackIndex, false);
-        if (track) {
-            CSurf_SetSurfaceVolume(track, CSurf_OnVolumeChange(track, value / 126.0, true), nullptr);
-            return true;
-        }
+        track = CSurf_TrackFromID(trackIndex, false);
+        return adjustTrackVolume(track, delta);
     }
     else if (command >= CMD_KNOB_PAN0 && command <= CMD_KNOB_PAN7) {
         trackIndex = command - CMD_KNOB_PAN0;
-        MediaTrack* track = CSurf_TrackFromID(trackIndex, false);
-        if (track) {
-            CSurf_SetSurfacePan(track, CSurf_OnPanChange(track, value * 0.00098425, true), nullptr);
-            return true;
-        }
+        track = CSurf_TrackFromID(trackIndex, false);
+        return adjustTrackPan(track, delta);
     }
+
     return false;
 }
 
@@ -130,18 +128,12 @@ bool handleTrackSelected(unsigned char, unsigned char value) {
 
 bool handleTrackMuted(unsigned char, unsigned char value) {
     MediaTrack* track = CSurf_TrackFromID(value, false);
-    if (!track) return false;
-    bool muted = *(bool*)GetSetMediaTrackInfo(track, "B_MUTE", nullptr);
-    CSurf_OnMuteChange(track, muted ? 0 : 1);
-    return true;
+    return toggleTrackMute(track);
 }
 
 bool handleTrackSoloed(unsigned char, unsigned char value) {
     MediaTrack* track = CSurf_TrackFromID(value, false);
-    if (!track) return false;
-    int solo = *(int*)GetSetMediaTrackInfo(track, "I_SOLO", nullptr);
-    CSurf_OnSoloChange(track, solo == 0 ? 1 : 0);
-    return true;
+    return toggleTrackSolo(track);
 }
 
 // ---- Navigation Handlers ----
@@ -193,7 +185,7 @@ bool handlePlayClip(unsigned char, unsigned char) {
         GetSetMediaTrackInfo(CSurf_TrackFromID(i, false), "I_SELECTED", &sel);
     sel = 1;
     GetSetMediaTrackInfo(track, "I_SELECTED", &sel);
-    Main_OnCommand(40913, 0);
+    Main_OnCommand(40913, 0); // Vertical scroll selected track into view (TCP)
     SetMixerScroll(track);
     return true;
 }
@@ -203,39 +195,25 @@ bool handlePlayClip(unsigned char, unsigned char) {
 bool handleSelectedTrackVolume(unsigned char, unsigned char value) {
     if (g_trackInFocus < 1) return false;
     MediaTrack* track = CSurf_TrackFromID(g_trackInFocus, false);
-    if (!track) return false;
-    signed char diff = convertSignedMidiValue(value);
-    double step = (abs(diff) > 38 ? 1.0 : 0.1) * (diff >= 0 ? 1 : -1);
-    CSurf_SetSurfaceVolume(track, CSurf_OnVolumeChange(track, step, true), nullptr);
-    return true;
+    return adjustTrackVolume(track, convertSignedMidiValue(value));
 }
 
 bool handleSelectedTrackPan(unsigned char, unsigned char value) {
     if (g_trackInFocus < 1) return false;
     MediaTrack* track = CSurf_TrackFromID(g_trackInFocus, false);
-    if (!track) return false;
-    signed char diff = convertSignedMidiValue(value);
-    double step = diff * 0.00098425;
-    CSurf_SetSurfacePan(track, CSurf_OnPanChange(track, step, true), nullptr);
-    return true;
+     return adjustTrackPan(track, convertSignedMidiValue(value));
 }
 
 bool handleSelectedTrackMute(unsigned char, unsigned char) {
     if (g_trackInFocus < 1) return false;
     MediaTrack* track = CSurf_TrackFromID(g_trackInFocus, false);
-    if (!track) return false;
-    bool muted = *(bool*)GetSetMediaTrackInfo(track, "B_MUTE", nullptr);
-    CSurf_OnMuteChange(track, muted ? 0 : 1);
-    return true;
+    return toggleTrackMute(track);
 }
 
 bool handleSelectedTrackSolo(unsigned char, unsigned char) {
     if (g_trackInFocus < 1) return false;
     MediaTrack* track = CSurf_TrackFromID(g_trackInFocus, false);
-    if (!track) return false;
-    int solo = *(int*)GetSetMediaTrackInfo(track, "I_SOLO", nullptr);
-    CSurf_OnSoloChange(track, solo == 0 ? 1 : 0);
-    return true;
+    return toggleTrackSolo(track);
 }
 
 // ---- Misc Handlers ----

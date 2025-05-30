@@ -2,6 +2,7 @@
 
 #include <string>
 class MidiSender;
+class MediaTrack;
 
 // Returns index of matching MIDI input device (or -1 if not found)
 int getKkMidiInput();
@@ -26,3 +27,9 @@ void enableRecCountIn();
 void disableRecCountIn();
 
 void* GetConfigVar(const char* cVar);
+
+bool adjustTrackVolume(MediaTrack* track, signed char midiDelta);
+bool adjustTrackPan(MediaTrack* track, signed char midiDelta);
+
+bool toggleTrackMute(MediaTrack* track);
+bool toggleTrackSolo(MediaTrack* track);
