@@ -78,6 +78,11 @@ public:
 		static int inDev = -1;
 		static int outDev = -1;
 
+		static bool lightOn = false;
+		static int flashTimer = -1; // EXT_EDIT_OFF: flashTimer = -1, EXT_EDIT_ACTIONS: flashTimer = -4
+		static int cycleTimer = -1;
+		static int cyclePos = 0;
+
 		if (g_connectedState == KK_NOT_CONNECTED) {
 			/*----------------- Scan for KK Keyboard -----------------*/
 			scanTimer += 1;
@@ -141,10 +146,143 @@ public:
 				loadActionList();
 				g_actionListLoaded = true;
 			}
+		
+			if (getExtEditMode()  == EXT_EDIT_OFF) {
+				if (flashTimer != -1) { // are we returning from one of the Extended Edit Modes?
+					this->_updateTransportAndNavButtons();
+					allMixerUpdate(midiSender);
+					this->_peakMixerUpdate();
 
-			this->_updateTransportAndNavButtons();
-			allMixerUpdate(midiSender);
-			this->_peakMixerUpdate();
+					lightOn = false;
+					flashTimer = -1;
+					cycleTimer = -1;
+					cyclePos = 0;
+				}
+			}
+			else if (getExtEditMode()  == EXT_EDIT_ON) {
+				// Flash all Ext Edit buttons
+				flashTimer += 1;
+				if (flashTimer >= FLASH_T) {
+					flashTimer = 0;
+					lightOn = !lightOn;
+
+					const unsigned char navValue = lightOn ? 3 : 0;
+					const unsigned char onOff = lightOn ? 1 : 0;
+
+					midiSender->sendCc(CMD_NAV_TRACKS, navValue);
+					midiSender->sendCc(CMD_NAV_CLIPS, navValue);
+					midiSender->sendCc(CMD_REC, onOff);
+					midiSender->sendCc(CMD_CLEAR, onOff);
+					midiSender->sendCc(CMD_LOOP, onOff);
+					midiSender->sendCc(CMD_METRO, onOff);
+				}
+			}
+			else if (getExtEditMode()  == EXT_EDIT_LOOP) {
+				if (cycleTimer == -1) {
+					this->_updateTransportAndNavButtons();
+					midiSender->sendCc(CMD_NAV_TRACKS, 1);
+					midiSender->sendCc(CMD_NAV_CLIPS, 0);
+				}
+				// Cycle 4D Encoder LEDs
+				cycleTimer += 1;
+				if (cycleTimer >= CYCLE_T) {
+					cycleTimer = 0;
+					cyclePos += 1;
+					if (cyclePos > 3) {
+						cyclePos = 0;
+					}
+					switch (cyclePos) { // clockwise cycling
+					case 0:
+						midiSender->sendCc(CMD_NAV_TRACKS, 1);
+						midiSender->sendCc(CMD_NAV_CLIPS, 0);
+						break;
+					case 1:
+						midiSender->sendCc(CMD_NAV_TRACKS, 0);
+						midiSender->sendCc(CMD_NAV_CLIPS, 1);
+						break;
+					case 2:
+						midiSender->sendCc(CMD_NAV_TRACKS, 2);
+						midiSender->sendCc(CMD_NAV_CLIPS, 0);
+						break;
+					case 3:
+						midiSender->sendCc(CMD_NAV_TRACKS, 0);
+						midiSender->sendCc(CMD_NAV_CLIPS, 2);
+						break;
+					}
+				}
+				// Flash LOOP button
+				flashTimer += 1;
+				if (flashTimer >= FLASH_T) {
+					flashTimer = 0;
+					if (lightOn) {
+						lightOn = false;
+						midiSender->sendCc(CMD_LOOP, 0);
+					}
+					else {
+						lightOn = true;
+						midiSender->sendCc(CMD_LOOP, 1);
+					}
+				}
+			}
+			else if (getExtEditMode()  == EXT_EDIT_TEMPO) {
+				if (cycleTimer == -1) {
+					this->_updateTransportAndNavButtons();
+					midiSender->sendCc(CMD_NAV_TRACKS, 1);
+					midiSender->sendCc(CMD_NAV_CLIPS, 0);
+				}
+				// Cycle 4D Encoder LEDs
+				cycleTimer += 1;
+				if (cycleTimer >= CYCLE_T) {
+					cycleTimer = 0;
+					cyclePos += 1;
+					if (cyclePos > 3) {
+						cyclePos = 0;
+					}
+					switch (cyclePos) { // counter clockwise cycling
+					case 0:
+						midiSender->sendCc(CMD_NAV_TRACKS, 1);
+						midiSender->sendCc(CMD_NAV_CLIPS, 0);
+						break;
+					case 1:
+						midiSender->sendCc(CMD_NAV_TRACKS, 0);
+						midiSender->sendCc(CMD_NAV_CLIPS, 2);
+						break;
+					case 2:
+						midiSender->sendCc(CMD_NAV_TRACKS, 2);
+						midiSender->sendCc(CMD_NAV_CLIPS, 0);
+						break;
+					case 3:
+						midiSender->sendCc(CMD_NAV_TRACKS, 0);
+						midiSender->sendCc(CMD_NAV_CLIPS, 1);
+						break;
+					}
+				}
+				// Flash METRO button
+				flashTimer += 1;
+				if (flashTimer >= FLASH_T) {
+					flashTimer = 0;
+					if (lightOn) {
+						lightOn = false;
+						midiSender->sendCc(CMD_METRO, 0);
+					}
+					else {
+						lightOn = true;
+						midiSender->sendCc(CMD_METRO, 1);
+					}
+				}
+			}
+			else if (getExtEditMode()  == EXT_EDIT_ACTIONS) {
+				if (flashTimer != -4) {
+					this->_updateTransportAndNavButtons();
+					lightOn = false;
+					flashTimer = -4;
+					cycleTimer = -1;
+					cyclePos = 0;
+				}
+			}
+			if (getExtEditMode() != EXT_EDIT_ACTIONS) {
+				this->_peakMixerUpdate();
+			}
 			BaseSurface::Run();
 		}
 	}

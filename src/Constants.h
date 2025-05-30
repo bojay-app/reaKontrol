@@ -39,7 +39,8 @@ extern bool g_muteStateBank[BANK_NUM_TRACKS];
 extern bool g_KKcountInTriggered;
 extern int g_KKcountInMetroState;
 
-extern int g_extEditMode;
+int getExtEditMode();
+void setExtEditMode(int newMode);
 
 extern int g_connectedState;
 
@@ -47,3 +48,14 @@ extern int g_connectedState;
 extern int log_scanAttempts;
 extern int log_connectAttempts;
 #endif
+
+inline const char* getConstantName(unsigned char cons) {
+    switch (cons) {
+    case EXT_EDIT_OFF: return "EXT_EDIT_OFF";
+    case EXT_EDIT_ON: return "EXT_EDIT_ON";
+    case EXT_EDIT_LOOP: return "EXT_EDIT_LOOP";
+    case EXT_EDIT_TEMPO: return "EXT_EDIT_TEMPO";
+    case EXT_EDIT_ACTIONS: return "EXT_EDIT_ACTIONS";
+    default: return "UNKNOWN";
+    }
+}
