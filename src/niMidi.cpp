@@ -214,17 +214,12 @@ public:
 				flashTimer += 1;
 				if (flashTimer >= FLASH_T) {
 					flashTimer = 0;
-					if (lightOn) {
-						lightOn = false;
-						midiSender->sendCc(CMD_LOOP, 0);
-					}
-					else {
-						lightOn = true;
-						midiSender->sendCc(CMD_LOOP, 1);
-					}
+					lightOn = !lightOn;
+					const unsigned char onOff = lightOn ? 1 : 0;
+					midiSender->sendCc(CMD_LOOP, onOff);
 				}
 			}
-			else if (getExtEditMode()  == EXT_EDIT_TEMPO) {
+			else if (getExtEditMode() == EXT_EDIT_TEMPO) {
 				if (cycleTimer == -1) {
 					this->_updateTransportAndNavButtons();
 					midiSender->sendCc(CMD_NAV_TRACKS, 1);
@@ -261,14 +256,9 @@ public:
 				flashTimer += 1;
 				if (flashTimer >= FLASH_T) {
 					flashTimer = 0;
-					if (lightOn) {
-						lightOn = false;
-						midiSender->sendCc(CMD_METRO, 0);
-					}
-					else {
-						lightOn = true;
-						midiSender->sendCc(CMD_METRO, 1);
-					}
+					lightOn = !lightOn;
+					const unsigned char onOff = lightOn ? 1 : 0;
+					midiSender->sendCc(CMD_METRO, onOff);
 				}
 			}
 			else if (getExtEditMode()  == EXT_EDIT_ACTIONS) {
