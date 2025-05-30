@@ -60,7 +60,7 @@ public:
 		delete midiSender;
 		midiSender = nullptr;
 
-		this->_protocolVersion = 0;
+		protocolVersion = 0;
 		g_connectedState = KK_NOT_CONNECTED;
 	}
 
@@ -143,7 +143,7 @@ public:
 			}
 
 			this->_updateTransportAndNavButtons();
-			this->_allMixerUpdate();
+			allMixerUpdate(midiSender);
 			this->_peakMixerUpdate();
 			BaseSurface::Run();
 		}
@@ -205,15 +205,15 @@ public:
 			// track selection/navigation on the keyboard (or from within Reaper).
 		}
 		// Protect against loosing bank focus. Set focus on last bank in this case.
-		if (this->_bankStart > numTracks) {
+		if (bankStart > numTracks) {
 			int lastInLastBank = numTracks % BANK_NUM_TRACKS;
-			this->_bankStart = numTracks - lastInLastBank;
+			bankStart = numTracks - lastInLastBank;
 		}
 		// If no track is selected at all (e.g. if previously selected track got removed), then this will now also show up in the
 		// Mixer View. However, KK instance focus may still be present! This can be a little bit confusing for the user as typically
 		// the track holding the focused KK instance will also be selected. This situation gets resolved as soon as any form of
 		// track navigation/selection happens (from keyboard or from within Reaper).
-		this->_allMixerUpdate();
+		allMixerUpdate(midiSender);
 		// ToDo: Consider sending some updates to force NIHIA to really fully update the display. Maybe in conjunction with changes to peakMixerUpdate?
 		metronomeUpdate(midiSender); // check if metronome status has changed on project tab change
 	}
@@ -238,11 +238,11 @@ public:
 			if (id != g_trackInFocus) {
 				// Track selection has changed
 				g_trackInFocus = id;
-				int oldBankStart = this->_bankStart;
-				this->_bankStart = id - numInBank;
-				if (this->_bankStart != oldBankStart) {
+				int oldBankStart = bankStart;
+				bankStart = id - numInBank;
+				if (bankStart != oldBankStart) {
 					// Update everything
-					this->_allMixerUpdate(); // Note: this will also update 4D track nav LEDs, g_muteStateBank and g_soloStateBank caches
+					allMixerUpdate(midiSender); // Note: this will also update 4D track nav LEDs, g_muteStateBank and g_soloStateBank caches
 				}
 				else {
 					// Update 4D Encoder track navigation LEDs
@@ -302,7 +302,7 @@ public:
 			// Note: Rather than using a callback SetTrackTitle(MediaTrack *track, const char *title) we update the name within
 			// SetSurfaceSelected as it will be called anyway when the track name changes and SetTrackTitle sometimes receives 
 			// cascades of calls for all tracks even if only one name changed
-			if ((id > 0) && (id >= this->_bankStart) && (id <= this->_bankEnd)) {
+			if ((id > 0) && (id >= bankStart) && (id <= bankEnd)) {
 				char* name = (char*)GetSetMediaTrackInfo(track, "P_NAME", nullptr);
 				if ((!name) || (*name == '\0')) {
 					std::string s = "TRACK " + std::to_string(id);
@@ -319,7 +319,7 @@ public:
 	virtual void SetSurfaceVolume(MediaTrack* track, double volume) override {
 		if (g_connectedState != KK_NIHIA_CONNECTED) return;
 		int id = CSurf_TrackToID(track, false);
-		if ((id >= this->_bankStart) && (id <= this->_bankEnd)) {
+		if ((id >= bankStart) && (id <= bankEnd)) {
 			int numInBank = id % BANK_NUM_TRACKS;
 			char volText[64] = { 0 };
 			mkvolstr(volText, volume);
@@ -332,7 +332,7 @@ public:
 	virtual void SetSurfacePan(MediaTrack* track, double pan) override {
 		if (g_connectedState != KK_NIHIA_CONNECTED) return;
 		int id = CSurf_TrackToID(track, false);
-		if ((id >= this->_bankStart) && (id <= this->_bankEnd)) {
+		if ((id >= bankStart) && (id <= bankEnd)) {
 			int numInBank = id % BANK_NUM_TRACKS;
 			char panText[64];
 			mkpanstr(panText, pan);
@@ -348,7 +348,7 @@ public:
 			midiSender->sendSysex(CMD_TOGGLE_SEL_TRACK_MUTE, mute ? 1 : 0, 0); // Needed by NIHIA v1.8.7 (KK v2.1.2)
 			midiSender->sendCc(CMD_TOGGLE_SEL_TRACK_MUTE, mute ? 1 : 0); // Needed by NIHIA v1.8.8 (KK v2.1.3)
 		}
-		if ((id >= this->_bankStart) && (id <= this->_bankEnd)) {
+		if ((id >= bankStart) && (id <= bankEnd)) {
 			int numInBank = id % BANK_NUM_TRACKS;
 			if (g_muteStateBank[numInBank] != mute) { // Efficiency: only send updates if soemthing changed
 				g_muteStateBank[numInBank] = mute;
@@ -369,7 +369,7 @@ public:
 			// If g_anySolo state has changed update the tracks' muted by solo states within the current bank
 			if (g_anySolo != solo) {
 				g_anySolo = solo;
-				this->_allMixerUpdate(); // Everything needs to be updated, not good enough to just update muted_by_solo states
+				allMixerUpdate(midiSender); // Everything needs to be updated, not good enough to just update muted_by_solo states
 			}
 			// If any track is soloed the currently selected track will be muted by solo unless it is also soloed
 			if (g_trackInFocus > 0) {
@@ -395,7 +395,7 @@ public:
 			midiSender->sendSysex(CMD_TOGGLE_SEL_TRACK_SOLO, solo ? 1 : 0, 0); // Needed by NIHIA v1.8.7 (KK v2.1.2)
 			midiSender->sendCc(CMD_TOGGLE_SEL_TRACK_SOLO, solo ? 1 : 0); // Needed by NIHIA v1.8.8 (KK v2.1.3)
 		}
-		if ((id >= this->_bankStart) && (id <= this->_bankEnd)) {
+		if ((id >= bankStart) && (id <= bankEnd)) {
 			int numInBank = id % BANK_NUM_TRACKS;
 			if (solo) {
 				if (g_soloStateBank[numInBank] != 1) {
@@ -418,7 +418,7 @@ public:
 		if (g_connectedState != KK_NIHIA_CONNECTED) return;
 		// Note: record arm also leads to a cascade of other callbacks (-> filtering required!)
 		int id = CSurf_TrackToID(track, false);
-		if ((id >= this->_bankStart) && (id <= this->_bankEnd)) {
+		if ((id >= bankStart) && (id <= bankEnd)) {
 			int numInBank = id % BANK_NUM_TRACKS;
 			midiSender->sendSysex(CMD_TRACK_ARMED, armed ? 1 : 0, numInBank);
 		}
@@ -444,13 +444,13 @@ protected:
 
 		// Handshake
 		if (command == CMD_HELLO) {
-        	_protocolVersion = value;
+        	protocolVersion = value;
         if (value > 0) {
             midiSender->sendCc(CMD_UNDO, 1);
             midiSender->sendCc(CMD_REDO, 1);
             midiSender->sendCc(CMD_CLEAR, 1);
             midiSender->sendCc(CMD_QUANTIZE, 1);
-            _allMixerUpdate();
+            allMixerUpdate(midiSender);
             g_connectedState = KK_NIHIA_CONNECTED;
             Help_Set("ReaKontrol: KK-Keyboard connected", false);
 		}
@@ -459,7 +459,7 @@ protected:
 	}
 
 		static CommandProcessor processor(*midiSender);
-		processor.handle(command, value);
+		processor.Handle(command, value);
 	}
 
 	//===============================================================================================================================
@@ -467,10 +467,6 @@ protected:
 private:
 	MidiSender* midiSender = nullptr;
 	CommandProcessor* processor = nullptr;
-
-	int _protocolVersion = 0;
-	int _bankStart = 0;
-	int _bankEnd = 0;
 
 	void _peakMixerUpdate() {
 		// Peak meters. Note: Reaper reports peak, NOT VU	
@@ -487,7 +483,7 @@ private:
 		int j = 0;
 		double peakValue = 0;
 		int numInBank = 0;
-		for (int id = this->_bankStart; id <= this->_bankEnd; ++id, ++numInBank) {
+		for (int id = bankStart; id <= bankEnd; ++id, ++numInBank) {
 			MediaTrack* track = CSurf_TrackFromID(id, false);
 			if (!track) {
 				break;
@@ -496,7 +492,7 @@ private:
 			if (HIDE_MUTED_BY_SOLO) {
 				// If any track is soloed then only soloed tracks and the master show peaks (irrespective of their mute state)
 				if (g_anySolo) {
-					if ((g_soloStateBank[numInBank] == 0) && (((numInBank != 0) && (this->_bankStart == 0)) || (this->_bankStart != 0))) {
+					if ((g_soloStateBank[numInBank] == 0) && (((numInBank != 0) && (bankStart == 0)) || (bankStart != 0))) {
 						peakBank[j] = 1;
 						peakBank[j + 1] = 1;
 					}
@@ -537,96 +533,6 @@ private:
 		}
 		peakBank[j + 2] = '\0'; // end of string (no tracks available further to the right)
 		midiSender->sendSysex(CMD_TRACK_VU, 2, 0, peakBank);
-	}
-
-	void _allMixerUpdate() {
-		int numInBank = 0;
-		this->_bankEnd = this->_bankStart + BANK_NUM_TRACKS - 1; // avoid ambiguity: track counting always zero based
-		int numTracks = CSurf_NumTracks(false);
-		// Update bank select button lights
-		// ToDo: Consider optimizing this piece of code
-		int bankLights = 3; // left and right on
-		if (numTracks < BANK_NUM_TRACKS) {
-			bankLights = 0; // left and right off
-		}
-		else if (this->_bankStart == 0) {
-			bankLights = 2; // left off, right on
-		}
-		else if (this->_bankEnd >= numTracks) {
-			bankLights = 1; // left on, right off
-		}
-		midiSender->sendCc(CMD_NAV_BANKS, bankLights);
-		if (this->_bankEnd > numTracks) {
-			this->_bankEnd = numTracks;
-			// Mark additional bank tracks as not available
-			int lastInLastBank = numTracks % BANK_NUM_TRACKS;
-			for (int i = 7; i > lastInLastBank; --i) {
-				midiSender->sendSysex(CMD_TRACK_AVAIL, 0, i);
-			}
-		}
-		// Update 4D Encoder track navigation LEDs
-		int trackNavLights = 3; // left and right on
-		if (g_trackInFocus < 2) {
-			trackNavLights &= 2; // left off
-		}
-		if (g_trackInFocus >= numTracks) {
-			trackNavLights &= 1; // right off
-		}
-		midiSender->sendCc(CMD_NAV_TRACKS, trackNavLights);
-		// Update current bank
-		for (int id = this->_bankStart; id <= this->_bankEnd; ++id, ++numInBank) {
-			MediaTrack* track = CSurf_TrackFromID(id, false);
-			if (!track) {
-				break;
-			}
-			// Master track needs special consideration: no soloing, no record arm
-			if (id == 0) {
-				midiSender->sendSysex(CMD_TRACK_AVAIL, TRTYPE_MASTER, 0);
-				midiSender->sendSysex(CMD_TRACK_NAME, 0, 0, "MASTER");
-				midiSender->sendSysex(CMD_TRACK_SOLOED, 0, 0);
-				midiSender->sendSysex(CMD_TRACK_MUTED_BY_SOLO, 0, 0);
-				midiSender->sendSysex(CMD_TRACK_ARMED, 0, 0);
-			}
-			// Ordinary tracks can be soloed and record armed
-			else {
-				midiSender->sendSysex(CMD_TRACK_AVAIL, TRTYPE_UNSPEC, numInBank);
-				int soloState = *(int*)GetSetMediaTrackInfo(track, "I_SOLO", nullptr);
-				if (soloState == 0) {
-					g_soloStateBank[numInBank] = 0;
-					midiSender->sendSysex(CMD_TRACK_SOLOED, 0, numInBank);
-					midiSender->sendSysex(CMD_TRACK_MUTED_BY_SOLO, g_anySolo ? 1 : 0, numInBank);
-				}
-				else {
-					g_soloStateBank[numInBank] = 1;
-					midiSender->sendSysex(CMD_TRACK_SOLOED, 1, numInBank);
-					midiSender->sendSysex(CMD_TRACK_MUTED_BY_SOLO, 0, numInBank);
-				}
-				int armed = *(int*)GetSetMediaTrackInfo(track, "I_RECARM", nullptr);
-				midiSender->sendSysex(CMD_TRACK_ARMED, armed, numInBank);
-				char* name = (char*)GetSetMediaTrackInfo(track, "P_NAME", nullptr);
-				if ((!name) || (*name == '\0')) {
-					std::string s = "TRACK " + std::to_string(id);
-					std::vector<char> nameGeneric(s.begin(), s.end()); // memory safe conversion to C style char
-					nameGeneric.push_back('\0');
-					name = &nameGeneric[0];
-				}
-				midiSender->sendSysex(CMD_TRACK_NAME, 0, numInBank, name);
-			}
-			midiSender->sendSysex(CMD_TRACK_SELECTED, id == g_trackInFocus ? 1 : 0, numInBank);
-			bool muted = *(bool*)GetSetMediaTrackInfo(track, "B_MUTE", nullptr);
-			g_muteStateBank[numInBank] = muted;
-			midiSender->sendSysex(CMD_TRACK_MUTED, muted ? 1 : 0, numInBank);
-			double volume = *(double*)GetSetMediaTrackInfo(track, "D_VOL", nullptr);
-			char volText[64];
-			mkvolstr(volText, volume);
-			midiSender->sendSysex(CMD_TRACK_VOLUME_TEXT, 0, numInBank, volText);
-			midiSender->sendCc((CMD_KNOB_VOLUME0 + numInBank), volToChar_KkMk2(volume * 1.05925));
-			double pan = *(double*)GetSetMediaTrackInfo(track, "D_PAN", nullptr);
-			char panText[64];
-			mkpanstr(panText, pan);
-			midiSender->sendSysex(CMD_TRACK_PAN_TEXT, 0, numInBank, panText); // NIHIA v1.8.7.135 uses internal text
-			midiSender->sendCc((CMD_KNOB_PAN0 + numInBank), panToChar(pan));
-		}
 	}
 
 	void _updateTransportAndNavButtons() {

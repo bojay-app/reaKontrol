@@ -1,6 +1,10 @@
 #include "Constants.h"
 #include "Commands.h"
 
+int protocolVersion = 0;
+int bankStart = 0;
+int bankEnd = 0;
+
 int g_trackInFocus = -1;
 bool g_anySolo = false;
 int g_soloStateBank[BANK_NUM_TRACKS] = { 0 };

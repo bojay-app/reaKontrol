@@ -20,6 +20,7 @@ unsigned char volToChar_KkMk2(double volume);
 
 void showTempoInMixer(MidiSender* midiSender);
 void metronomeUpdate(MidiSender* midiSender);
+void allMixerUpdate(MidiSender* midiSender);
 int getMetronomeState();
 void enableRecCountIn();
 void disableRecCountIn();
