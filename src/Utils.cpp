@@ -13,6 +13,9 @@
 #include <reaper/reaper_plugin.h>
 #include <reaper/reaper_plugin_functions.h>
 
+static const char KK_VST_PREFIX[] = "VSTi: Kontakt";
+static char KK_VST3_PREFIX[] = "VST3i: Kontakt";
+
 static const char* kk_device_names[] = {
     "MIDIIN2 (KONTROL S61 MK3)",
     "MIDIOUT2 (KONTROL S61 MK3)"
@@ -22,6 +25,29 @@ static reaper_plugin_info_t* g_rec = nullptr;
 static std::unordered_map<int, std::function<void()>> g_actionCallbacks;
 static std::unordered_map<int, gaccel_register_t> g_registeredActions;
 static std::vector<std::string> g_actionDescriptions; // To store descriptions and maintain their lifetime
+
+const std::string getKkInstanceName(MediaTrack* track, bool stripPrefix) {
+    int fxCount = TrackFX_GetCount(track);
+    for (int fxIndex = 0; fxIndex < fxCount; ++fxIndex)
+    {
+        char fxName[512];
+        TrackFX_GetFXName(track, fxIndex, fxName, sizeof(fxName));
+        // Look for Kontakt plugins (VST or VST3)
+        if (!strstr(fxName, KK_VST_PREFIX) && !strstr(fxName, KK_VST3_PREFIX)) {
+            continue;
+        }
+
+        debugLog(std::string("TrackFX_Show(3): ") + fxName);
+        TrackFX_Show(track, fxIndex, 3); // Focus Komplete Kontrol
+        
+        char paramName[512];
+        TrackFX_GetParamName(track, fxIndex, 0, paramName, sizeof(paramName));
+       
+        return std::string(fxName);
+    }
+    debugLog("Failed to find Kontakt instance name");
+    return "";
+}
 
 // Hook function to handle actions
 static bool HookCommandProc(int command, int flag) {

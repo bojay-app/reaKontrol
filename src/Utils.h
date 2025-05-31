@@ -15,6 +15,8 @@ struct ReaKontrolAction {
     std::function<void()> callback;
 };
 
+const std::string getKkInstanceName(MediaTrack* track, bool stripPrefix);
+
 // Initializes the action registry
 void InitActionRegistry(reaper_plugin_info_t* rec);
 

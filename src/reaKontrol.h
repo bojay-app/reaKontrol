@@ -73,6 +73,7 @@
 #define REAPERAPI_WANT_GetResourcePath
 #define REAPERAPI_WANT_file_exists
 #define REAPERAPI_WANT_NamedCommandLookup
+#define REAPERAPI_WANT_TrackFX_Show
 
 
 #include <reaper/reaper_plugin.h>

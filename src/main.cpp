@@ -42,35 +42,7 @@ DWORD GetTickCount()
 using namespace std;
 class NiMidiSurface;
 
-const char KK_VST_PREFIX[] = "VSTi: Kontakt";
-const char KK_VST3_PREFIX[] = "VST3i: Kontakt";
-
 extern "C" IReaperControlSurface* createNiMidiSurface();
-
-const std::string getKkInstanceName(MediaTrack* track, bool stripPrefix) {
-	int fxCount = TrackFX_GetCount(track);
-
-	for (int fx = 0; fx < fxCount; ++fx) {
-		// Use a sufficiently large buffer
-		char fxName[512];
-		TrackFX_GetFXName(track, fx, fxName, sizeof(fxName));
-
-		// Look for Kontakt plugins (VST or VST3)
-		if (!strstr(fxName, KK_VST_PREFIX) && !strstr(fxName, KK_VST3_PREFIX)) {
-			continue;
-		}
-
-		char paramName[512];
-		TrackFX_GetParamName(track, fx, 0, paramName, sizeof(paramName));
-
-		debugLog(std::string("param Name: ") + paramName);
-		return std::string(paramName);
-	}
-
-	debugLog("Failed to find Kontakt instance name");
-	return "";
-}
-
 
 BaseSurface::BaseSurface() {
 	// ToDo: ???
