@@ -33,8 +33,10 @@ DWORD GetTickCount()
 #include <string>
 #include <cstring>
 #include <sstream>
+
 #define REAPERAPI_IMPLEMENT
 #include "reaKontrol.h"
+
 #include "NiMidiSurface.h"
 #include "Utils.h"
 

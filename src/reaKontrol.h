@@ -13,7 +13,7 @@
 #include <windows.h>
 #endif
 
-// ToDo: Cleanup REAPERAPI WANT list
+// REAPERAPI WANT list
 #define REAPERAPI_MINIMAL
 #define REAPERAPI_WANT_GetNumMIDIInputs
 #define REAPERAPI_WANT_GetNumMIDIInputs
@@ -74,8 +74,11 @@
 #define REAPERAPI_WANT_file_exists
 #define REAPERAPI_WANT_NamedCommandLookup
 
+// Reaper headers
 #include <reaper/reaper_plugin.h>
 #include <reaper/reaper_plugin_functions.h>
+
+// Then WDL headers
 #include <reaper/WDL/db2val.h>
 
 const std::string getKkInstanceName(MediaTrack* track, bool stripPrefix=false);
