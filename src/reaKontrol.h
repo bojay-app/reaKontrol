@@ -77,7 +77,7 @@
 #define REAPERAPI_WANT_FreeHeapPtr
 #define REAPERAPI_WANT_TrackFX_GetNamedConfigParm
 #define REAPERAPI_WANT_TrackFX_SetNamedConfigParm
-#define REAPERAPI_WANT_TrackFX_Show
+#define REAPERAPI_WANT_TrackFX_SetOffline
 
 // Reaper headers
 #include <reaper/reaper_plugin.h>

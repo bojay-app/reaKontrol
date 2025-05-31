@@ -285,6 +285,11 @@ bool CommandProcessor::handlePlayClip(unsigned char, unsigned char) {
     else {
         RefocusBank();
         setExtEditMode(EXT_EDIT_OFF);
+
+        // Enable kkInstance
+        MediaTrack* track = CSurf_TrackFromID(g_trackInFocus, false);
+        if (!track) return false;
+        activateKkInstance(track);
     }
     return true;
 }

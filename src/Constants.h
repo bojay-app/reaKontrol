@@ -27,7 +27,6 @@ constexpr int KK_NIHIA_CONNECTED = 2; // NIHIA HELLO acknowledged / fully connec
 #define CSURF_EXT_SETMETRONOME 0x00010002
 
 // Global variables
-extern bool dawEnabled;
 extern bool g_debugLogging;
 extern int protocolVersion;
 extern int bankStart;

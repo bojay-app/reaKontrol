@@ -369,19 +369,6 @@ void NiMidiSurface::SetSurfaceSelected(MediaTrack* track, bool selected) {
             }
             // Let Keyboard know about changed track selection
             midiSender->sendSysex(CMD_TRACK_SELECTED, 1, numInBank);
-            
-            // Set KK Instance Focus (Currently Not Working)
-            KKPluginInfo info = getKkInstanceInfo(track);
-
-            std::string instanceToSend = !info.renamedName.empty()
-                ? info.renamedName
-                : info.fxName;
-
-            ShowConsoleMsg(("Sending to KK: " + instanceToSend +
-                " for track index " + std::to_string(id) + "\n").c_str());
-
-            // SysEx method #2: your existing midiSender implementation
-            midiSender->sendSysex(CMD_SET_KK_INSTANCE, 0, id, instanceToSend);
         }
         // ------------------------- Automation Mode -----------------------
         // Update automation mode

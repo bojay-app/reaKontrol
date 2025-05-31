@@ -9,7 +9,6 @@ namespace {
 }
 
 bool g_debugLogging = false;
-bool dawEnabled = true;
 
 int protocolVersion = 0;
 int bankStart = 0;

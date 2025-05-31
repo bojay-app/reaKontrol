@@ -26,44 +26,24 @@ static std::unordered_map<int, std::function<void()>> g_actionCallbacks;
 static std::unordered_map<int, gaccel_register_t> g_registeredActions;
 static std::vector<std::string> g_actionDescriptions; // To store descriptions and maintain their lifetime
 
-KKPluginInfo getKkInstanceInfo(MediaTrack* track) {
-    KKPluginInfo info;
-    if (!track) return info;
+void activateKkInstance(MediaTrack* track) {
+    if (!track) return;
 
     const int fxCount = TrackFX_GetCount(track);
     char fxName[512];
-    char renamed[512];
-    char fxIdent[512];
 
     for (int fxIndex = 0; fxIndex < fxCount; ++fxIndex) {
         if (!TrackFX_GetFXName(track, fxIndex, fxName, sizeof(fxName))) {
             continue;
         }
-
         if (strstr(fxName, "Komplete Kontrol") || strstr(fxName, "Kontakt")) {
-            // fx_name (plugin display name)
-            info.fxName = fxName;
-
-            // renamed_name (user-assigned)
-            if (TrackFX_GetNamedConfigParm(track, fxIndex, "renamed_name", renamed, sizeof(renamed))) {
-                info.renamedName = renamed;
-            }
-
-            // fx_ident (VST3 identifier)
-            if (TrackFX_GetNamedConfigParm(track, fxIndex, "fx_ident", fxIdent, sizeof(fxIdent))) {
-                info.fxIdent = fxIdent;
-            }
-
-            char focused[4] = "1";
-            TrackFX_SetNamedConfigParm(track, fxIndex, "focused", focused);  // tell REAPER this is focused
-
-            break; // Found our plugin — stop scanning
+            // 🔄 Force plugin to re-register with NIHIA
+            TrackFX_SetOffline(track, fxIndex, true);
+            TrackFX_SetOffline(track, fxIndex, false);
+            break;
         }
     }
-
-    return info;
 }
-
 
 // Hook function to handle actions
 static bool HookCommandProc(int command, int flag) {
@@ -117,18 +97,6 @@ void UnregisterAllActions() {
     g_actionCallbacks.clear();
     g_registeredActions.clear();
     g_actionDescriptions.clear();
-}
-
-void toggleDAW(MidiSender* midiSender) {
-    dawEnabled = !dawEnabled;
-    if (dawEnabled) {
-        midiSender->sendCc(CMD_HELLO, 2);
-        loadConfigFile();
-    }
-    else {
-        midiSender->sendCc(CMD_GOODBYE, 0);
-    }
-    
 }
 
 int getKkMidiInput() {

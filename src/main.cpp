@@ -46,9 +46,7 @@ class NiMidiSurface;
 
 extern "C" IReaperControlSurface* createNiMidiSurface();
 
-BaseSurface::BaseSurface() {
-	// ToDo: ???
-}
+BaseSurface::BaseSurface() {}
 
 BaseSurface::~BaseSurface() {
 	if (this->_midiIn)  {
@@ -94,15 +92,6 @@ extern "C" {
 
 			// Cast to NiMidiSurface to access custom methods
 			NiMidiSurface* niSurface = dynamic_cast<NiMidiSurface*>(surface);
-
-			// Register custom actions
-			RegisterAction({
-				"ReaKontrol_Toggle_DAW",
-				"ReaKontrol: Toggle KK Keyboard DAW Control",
-				[niSurface]() {
-					toggleDAW(niSurface->GetMidiSender());
-				}
-			});
 
 			return 1;
 		}
