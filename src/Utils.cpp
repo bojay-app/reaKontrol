@@ -26,27 +26,44 @@ static std::unordered_map<int, std::function<void()>> g_actionCallbacks;
 static std::unordered_map<int, gaccel_register_t> g_registeredActions;
 static std::vector<std::string> g_actionDescriptions; // To store descriptions and maintain their lifetime
 
-const std::string getKkInstanceName(MediaTrack* track, bool stripPrefix) {
-    int fxCount = TrackFX_GetCount(track);
-    for (int fxIndex = 0; fxIndex < fxCount; ++fxIndex)
-    {
-        char fxName[512];
-        TrackFX_GetFXName(track, fxIndex, fxName, sizeof(fxName));
-        // Look for Kontakt plugins (VST or VST3)
-        if (!strstr(fxName, KK_VST_PREFIX) && !strstr(fxName, KK_VST3_PREFIX)) {
+KKPluginInfo getKkInstanceInfo(MediaTrack* track) {
+    KKPluginInfo info;
+    if (!track) return info;
+
+    const int fxCount = TrackFX_GetCount(track);
+    char fxName[512];
+    char renamed[512];
+    char fxIdent[512];
+
+    for (int fxIndex = 0; fxIndex < fxCount; ++fxIndex) {
+        if (!TrackFX_GetFXName(track, fxIndex, fxName, sizeof(fxName))) {
             continue;
         }
 
-        debugLog(std::string("TrackFX_Show(3): ") + fxName);
-        
-        char paramName[512];
-        TrackFX_GetParamName(track, fxIndex, 0, paramName, sizeof(paramName));
-       
-        return std::string(fxName);
+        if (strstr(fxName, "Komplete Kontrol") || strstr(fxName, "Kontakt")) {
+            // fx_name (plugin display name)
+            info.fxName = fxName;
+
+            // renamed_name (user-assigned)
+            if (TrackFX_GetNamedConfigParm(track, fxIndex, "renamed_name", renamed, sizeof(renamed))) {
+                info.renamedName = renamed;
+            }
+
+            // fx_ident (VST3 identifier)
+            if (TrackFX_GetNamedConfigParm(track, fxIndex, "fx_ident", fxIdent, sizeof(fxIdent))) {
+                info.fxIdent = fxIdent;
+            }
+
+            char focused[4] = "1";
+            TrackFX_SetNamedConfigParm(track, fxIndex, "focused", focused);  // tell REAPER this is focused
+
+            break; // Found our plugin — stop scanning
+        }
     }
-    debugLog("Failed to find Kontakt instance name");
-    return "";
+
+    return info;
 }
+
 
 // Hook function to handle actions
 static bool HookCommandProc(int command, int flag) {

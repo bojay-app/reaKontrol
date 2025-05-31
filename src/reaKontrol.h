@@ -73,6 +73,11 @@
 #define REAPERAPI_WANT_GetResourcePath
 #define REAPERAPI_WANT_file_exists
 #define REAPERAPI_WANT_NamedCommandLookup
+#define REAPERAPI_WANT_GetSetObjectState2
+#define REAPERAPI_WANT_FreeHeapPtr
+#define REAPERAPI_WANT_TrackFX_GetNamedConfigParm
+#define REAPERAPI_WANT_TrackFX_SetNamedConfigParm
+#define REAPERAPI_WANT_TrackFX_Show
 
 // Reaper headers
 #include <reaper/reaper_plugin.h>
@@ -80,8 +85,6 @@
 
 // Then WDL headers
 #include <reaper/WDL/db2val.h>
-
-const std::string getKkInstanceName(MediaTrack* track, bool stripPrefix=false);
 
 class BaseSurface : public IReaperControlSurface {
 public:

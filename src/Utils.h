@@ -8,6 +8,12 @@ class MidiSender;
 class MediaTrack;
 struct reaper_plugin_info_t;
 
+struct KKPluginInfo {
+    std::string renamedName;
+    std::string fxIdent;
+    std::string fxName;
+};
+
 // Structure to hold action information
 struct ReaKontrolAction {
     std::string idstr;
@@ -15,7 +21,7 @@ struct ReaKontrolAction {
     std::function<void()> callback;
 };
 
-const std::string getKkInstanceName(MediaTrack* track, bool stripPrefix);
+KKPluginInfo getKkInstanceInfo(MediaTrack* track);
 
 // Initializes the action registry
 void InitActionRegistry(reaper_plugin_info_t* rec);
