@@ -39,6 +39,7 @@ DWORD GetTickCount()
 
 #include "NiMidiSurface.h"
 #include "Utils.h"
+#include "Constants.h"
 
 
 using namespace std;
@@ -90,8 +91,14 @@ extern "C" {
 			// Initialize the action registry
 			InitActionRegistry(rec);
 
-			// Cast to NiMidiSurface to access custom methods
-			NiMidiSurface* niSurface = dynamic_cast<NiMidiSurface*>(surface);
+			// Register custom actions
+			RegisterAction({
+				"ReaKontrol_Toggle_Debug",
+				"ReaKontrol: Toggle Debug Mode",
+				[]() {
+					g_debugLogging = !g_debugLogging;
+				}
+			});
 
 			return 1;
 		}

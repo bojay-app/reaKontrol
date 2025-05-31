@@ -89,8 +89,21 @@ bool CommandProcessor::handleStop(unsigned char, unsigned char) {
         setExtEditMode(EXT_EDIT_OFF);
         return true;
     }
-    CSurf_OnStop();
-    return true;
+
+    int playState = GetPlayState();
+
+    // Check if REAPER is playing or recording
+    if ((playState & 1) == 1 || (playState & 4) == 4) {
+        // Stop playback or recording
+        CSurf_OnStop();
+        return true;
+    }
+    else {
+        Main_OnCommand(9, 0); // Toggle record arm for selected track
+        return true;
+    }
+
+    return false;
 }
 
 bool CommandProcessor::handleRec(unsigned char, unsigned char) {
@@ -277,6 +290,7 @@ bool CommandProcessor::handlePlayClip(unsigned char, unsigned char) {
     if (getExtEditMode() == EXT_EDIT_ON) {
         setExtEditMode(EXT_EDIT_ACTIONS);
         showActionList(&midiSender);
+        return true;
     }
     else if (getExtEditMode() == EXT_EDIT_OFF) {
         RefocusBank();
@@ -287,6 +301,7 @@ bool CommandProcessor::handlePlayClip(unsigned char, unsigned char) {
         if (!track) return false;
         g_trackInFocus = tryTargetFirstTrack ? 1 : g_trackInFocus;
         activateKkInstance(track);
+        return true;
     }
     else {
         // Turn off mode

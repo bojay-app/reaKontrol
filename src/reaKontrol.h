@@ -78,6 +78,10 @@
 #define REAPERAPI_WANT_TrackFX_GetNamedConfigParm
 #define REAPERAPI_WANT_TrackFX_SetNamedConfigParm
 #define REAPERAPI_WANT_TrackFX_SetOffline
+#define REAPERAPI_WANT_TrackFX_GetOpen
+#define REAPERAPI_WANT_TrackFX_Show
+#define REAPERAPI_WANT_TrackFX_GetPreset
+#define REAPERAPI_WANT_GetSetMediaTrackInfo_String
 
 // Reaper headers
 #include <reaper/reaper_plugin.h>

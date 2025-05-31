@@ -525,6 +525,11 @@ void NiMidiSurface::_onMidiEvent(MIDI_event_t* event) {
     if (command == CMD_HELLO) {
         protocolVersion = value;
         if (value > 0) {
+            // Turn on button lights
+            midiSender->sendCc(CMD_UNDO, 1);
+            midiSender->sendCc(CMD_REDO, 1);
+            midiSender->sendCc(CMD_CLEAR, 1);
+            midiSender->sendCc(CMD_QUANTIZE, 1);
             allMixerUpdate(midiSender);
             g_connectedState = KK_NIHIA_CONNECTED;
         }

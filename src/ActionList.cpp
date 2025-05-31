@@ -59,10 +59,10 @@ void loadConfigFile() {
 
 void loadReaKontrolSettings(const std::string& iniPath) {
     char buffer[64] = { 0 };
-    GetPrivateProfileString("settings", "debug", "false", buffer, sizeof(buffer), iniPath.c_str());
+    /*GetPrivateProfileString("settings", "debug", "false", buffer, sizeof(buffer), iniPath.c_str());
 
     std::string val = toLowerTrimmed(buffer);
-    g_debugLogging = (val == "true" || val == "1");
+    g_debugLogging = (val == "true" || val == "1");*/
 }
 
 void loadActions(const char* pathname)

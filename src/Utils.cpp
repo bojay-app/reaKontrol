@@ -25,9 +25,13 @@ static reaper_plugin_info_t* g_rec = nullptr;
 static std::unordered_map<int, std::function<void()>> g_actionCallbacks;
 static std::unordered_map<int, gaccel_register_t> g_registeredActions;
 static std::vector<std::string> g_actionDescriptions; // To store descriptions and maintain their lifetime
+static MediaTrack* activatedTrack = nullptr;
 
 void activateKkInstance(MediaTrack* track) {
-    if (!track) return;
+    if (!track) {
+        activatedTrack = nullptr;
+        return;
+    }
 
     const int fxCount = TrackFX_GetCount(track);
     char fxName[512];
@@ -36,10 +40,19 @@ void activateKkInstance(MediaTrack* track) {
         if (!TrackFX_GetFXName(track, fxIndex, fxName, sizeof(fxName))) {
             continue;
         }
+
         if (strstr(fxName, "Komplete Kontrol") || strstr(fxName, "Kontakt")) {
-            // 🔄 Force plugin to re-register with NIHIA
-            TrackFX_SetOffline(track, fxIndex, true);
-            TrackFX_SetOffline(track, fxIndex, false);
+            if (activatedTrack == track) {
+                // Toggle FX window if the track is already activated
+                bool isOpen = TrackFX_GetOpen(track, fxIndex);
+                TrackFX_Show(track, fxIndex, isOpen ? 2 : 3);
+            }
+            else {
+                // Force plugin to re-register with NIHIA
+                TrackFX_SetOffline(track, fxIndex, true);
+                TrackFX_SetOffline(track, fxIndex, false);
+                activatedTrack = track;
+            }
             break;
         }
     }
