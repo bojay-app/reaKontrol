@@ -3,6 +3,7 @@
 #include <reaper/reaper_plugin_functions.h>
 #include <sstream>
 #include "Utils.h"
+#include "ActionList.h"
 
 namespace {
     int extEditMode = EXT_EDIT_OFF; // private to this translation unit
@@ -34,6 +35,12 @@ void setExtEditMode(int newMode) {
         msg << "[ExtEditMode] '" << getConstantName(extEditMode) << "' -> '" << getConstantName(newMode) << "'\n";
         debugLog(msg);
         extEditMode = newMode;
+    }
+
+    if (newMode == EXT_EDIT_OFF) {
+        // We refresh config for each edit mode switch
+        debugLog("Refreshed Configs");
+        loadConfigFile();
     }
 }
 

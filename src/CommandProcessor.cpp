@@ -49,6 +49,7 @@ CommandProcessor::CommandProcessor(MidiSender& sender, BaseSurface* surface)
     registerHandler(CMD_PLAY_CLIP, &CommandProcessor::handlePlayClip);
     registerHandler(CMD_MOVE_LOOP, &CommandProcessor::handleLoopMove);
 
+    registerHandler(CMD_MOVE_TRANSPORT, &CommandProcessor::handleSelectedTrackVolume);
     registerHandler(CMD_CHANGE_SEL_TRACK_VOLUME, &CommandProcessor::handleSelectedTrackVolume);
     registerHandler(CMD_CHANGE_SEL_TRACK_PAN, &CommandProcessor::handleSelectedTrackPan);
     registerHandler(CMD_TOGGLE_SEL_TRACK_MUTE, &CommandProcessor::handleSelectedTrackMute);
@@ -277,21 +278,22 @@ bool CommandProcessor::handlePlayClip(unsigned char, unsigned char) {
         setExtEditMode(EXT_EDIT_ACTIONS);
         showActionList(&midiSender);
     }
-    else if (getExtEditMode() == EXT_EDIT_ACTIONS) {
+    else if (getExtEditMode() == EXT_EDIT_OFF) {
+        RefocusBank();
+
+        // Enable kkInstance
+        bool tryTargetFirstTrack = g_trackInFocus == 0;
+        MediaTrack* track = CSurf_TrackFromID(tryTargetFirstTrack ? 1 : g_trackInFocus, false);
+        if (!track) return false;
+        g_trackInFocus = tryTargetFirstTrack ? 1 : g_trackInFocus;
+        activateKkInstance(track);
+    }
+    else {
+        // Turn off mode
         allMixerUpdate(&midiSender);
         peakMixerUpdate(&midiSender);
         setExtEditMode(EXT_EDIT_OFF);
     }
-    else {
-        RefocusBank();
-        setExtEditMode(EXT_EDIT_OFF);
-
-        // Enable kkInstance
-        MediaTrack* track = CSurf_TrackFromID(g_trackInFocus, false);
-        if (!track) return false;
-        activateKkInstance(track);
-    }
-    return true;
 }
 
 bool CommandProcessor::handleLoopMove(unsigned char, unsigned char value) {
@@ -306,7 +308,7 @@ bool CommandProcessor::handleLoopMove(unsigned char, unsigned char value) {
 
 // ---- Selected Track Knob Handlers ----
 
-bool CommandProcessor::handleSelectedTrackVolume(unsigned char, unsigned char value) {
+bool CommandProcessor::handleSelectedTrackVolume(unsigned char cmd, unsigned char value) {
     if (getExtEditMode() == EXT_EDIT_ON) {
         // Scroll playhead to next/previous grid division
         if (value <= 63) {
@@ -336,8 +338,14 @@ bool CommandProcessor::handleSelectedTrackVolume(unsigned char, unsigned char va
     else {
         // Adjust selected track vol (default 0 master track)
         if (getExtEditMode() == EXT_EDIT_ACTIONS) { return true; }
+
         MediaTrack* track = CSurf_TrackFromID(g_trackInFocus, false);
-        return adjustTrackVolume(track, convertSignedMidiValue(value));
+        signed char vol = convertSignedMidiValue(value);
+        if (cmd == CMD_MOVE_TRANSPORT) {
+            // The signal is 1 : 127 => 1 : -1, which is too small for volume. So we make it the same value as the track volume cmd
+            vol *= 63; 
+        }
+        return adjustTrackVolume(track, vol);
     }
 }
 

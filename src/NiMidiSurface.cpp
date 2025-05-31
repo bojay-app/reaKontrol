@@ -527,7 +527,6 @@ void NiMidiSurface::_onMidiEvent(MIDI_event_t* event) {
         if (value > 0) {
             allMixerUpdate(midiSender);
             g_connectedState = KK_NIHIA_CONNECTED;
-            Help_Set("ReaKontrol: KK-Keyboard connected", false);
         }
 
         return;
