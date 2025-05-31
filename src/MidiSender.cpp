@@ -19,25 +19,39 @@ void MidiSender::sendSysex(unsigned char command,
     const std::string& info) {
     if (!_output) return;
 
-    int length = sizeof(MIDI_SYSEX_BEGIN) + 3 + info.length() + 1;
-    MIDI_event_t* event = (MIDI_event_t*)new unsigned char[
-        sizeof(MIDI_event_t) - 4 + length];
+    size_t sysexBeginSize = sizeof(MIDI_SYSEX_BEGIN);
+    size_t infoLength = info.length();
+    size_t length = sysexBeginSize + 3 + infoLength + 1; // 3 for command, value, track; 1 for MIDI_SYSEX_END
+
+    // Allocate memory for MIDI_event_t with the appropriate size
+    MIDI_event_t* event = reinterpret_cast<MIDI_event_t*>(
+        new unsigned char[sizeof(MIDI_event_t) - 4 + length]);
 
     event->frame_offset = 0;
-    event->size = length;
+    event->size = static_cast<int>(length); // Explicit cast to suppress warning
 
-    memcpy(event->midi_message, MIDI_SYSEX_BEGIN, sizeof(MIDI_SYSEX_BEGIN));
-    int pos = sizeof(MIDI_SYSEX_BEGIN);
+    // Copy the SysEx header
+    memcpy(event->midi_message, MIDI_SYSEX_BEGIN, sysexBeginSize);
+    size_t pos = sysexBeginSize;
+
+    // Add command, value, and track
     event->midi_message[pos++] = command;
     event->midi_message[pos++] = value;
     event->midi_message[pos++] = track;
 
+    // Copy additional info if present
     if (!info.empty()) {
-        memcpy(event->midi_message + pos, info.c_str(), info.length());
-        pos += info.length();
+        memcpy(event->midi_message + pos, info.c_str(), infoLength);
+        pos += infoLength;
     }
 
+    // Append SysEx end byte
     event->midi_message[pos++] = MIDI_SYSEX_END;
+
+    // Send the MIDI message
     _output->SendMsg(event, -1);
-    delete[](unsigned char*)event;
+
+    // Clean up allocated memory
+    delete[] reinterpret_cast<unsigned char*>(event);
 }
+

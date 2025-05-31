@@ -293,7 +293,10 @@ bool CommandProcessor::handlePlayClip(unsigned char, unsigned char) {
         allMixerUpdate(&midiSender);
         peakMixerUpdate(&midiSender);
         setExtEditMode(EXT_EDIT_OFF);
+        return true;
     }
+
+    return false;
 }
 
 bool CommandProcessor::handleLoopMove(unsigned char, unsigned char value) {
