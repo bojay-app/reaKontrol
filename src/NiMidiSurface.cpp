@@ -7,6 +7,11 @@
 #include "MidiSender.h"
 #include "CommandProcessor.h"
 
+enum CycleDirection {
+    CLOCKWISE,
+    COUNTER_CLOCKWISE
+};
+
 NiMidiSurface::NiMidiSurface()
     : midiSender(nullptr), processor(nullptr) {
     g_connectedState = KK_NOT_CONNECTED;
@@ -46,7 +51,7 @@ void NiMidiSurface::Run() {
     static int outDev = -1;
 
     static bool lightOn = false;
-    static int flashTimer = -1; // EXT_EDIT_OFF: flashTimer = -1, EXT_EDIT_ACTIONS: flashTimer = -4
+    static int flashTimer = -1; // EXT_EDIT_OFF: flashTimer = -1
     static int cycleTimer = -1;
     static int cyclePos = 0;
 
@@ -105,7 +110,8 @@ void NiMidiSurface::Run() {
 
         if (getExtEditMode() == EXT_EDIT_OFF) {
             if (flashTimer != -1) {
-                this->_updateTransportAndNavButtons();
+                debugLog("UI updated for off state");
+                this->updateTransportAndNavButtons();
                 allMixerUpdate(midiSender);
                 peakMixerUpdate(midiSender);
 
@@ -116,55 +122,17 @@ void NiMidiSurface::Run() {
             }
         }
         else if (getExtEditMode() == EXT_EDIT_ON) {
-            // Flash all Ext Edit buttons
-            flashTimer += 1;
-            if (flashTimer >= FLASH_T) {
-                flashTimer = 0;
-                lightOn = !lightOn;
-
-                const unsigned char navValue = lightOn ? 3 : 0;
-                const unsigned char onOff = lightOn ? 1 : 0;
-
-                midiSender->sendCc(CMD_NAV_TRACKS, navValue);
-                midiSender->sendCc(CMD_NAV_CLIPS, navValue);
-                midiSender->sendCc(CMD_REC, onOff);
-                midiSender->sendCc(CMD_CLEAR, onOff);
-                midiSender->sendCc(CMD_LOOP, onOff);
-            }
+            showActionList(midiSender);
+            cycleEncoderLEDs(cycleTimer, cyclePos, CLOCKWISE, midiSender);
         }
         else if (getExtEditMode() == EXT_EDIT_LOOP) {
             if (cycleTimer == -1) {
-                this->_updateTransportAndNavButtons();
+                this->updateTransportAndNavButtons();
                 midiSender->sendCc(CMD_NAV_TRACKS, 1);
                 midiSender->sendCc(CMD_NAV_CLIPS, 0);
             }
-            // Cycle 4D Encoder LEDs
-            cycleTimer += 1;
-            if (cycleTimer >= CYCLE_T) {
-                cycleTimer = 0;
-                cyclePos += 1;
-                if (cyclePos > 3) {
-                    cyclePos = 0;
-                }
-                switch (cyclePos) { // clockwise cycling
-                case 0:
-                    midiSender->sendCc(CMD_NAV_TRACKS, 1);
-                    midiSender->sendCc(CMD_NAV_CLIPS, 0);
-                    break;
-                case 1:
-                    midiSender->sendCc(CMD_NAV_TRACKS, 0);
-                    midiSender->sendCc(CMD_NAV_CLIPS, 1);
-                    break;
-                case 2:
-                    midiSender->sendCc(CMD_NAV_TRACKS, 2);
-                    midiSender->sendCc(CMD_NAV_CLIPS, 0);
-                    break;
-                case 3:
-                    midiSender->sendCc(CMD_NAV_TRACKS, 0);
-                    midiSender->sendCc(CMD_NAV_CLIPS, 2);
-                    break;
-                }
-            }
+            cycleEncoderLEDs(cycleTimer, cyclePos, CLOCKWISE, midiSender);
+            
             // Flash LOOP button
             flashTimer += 1;
             if (flashTimer >= FLASH_T) {
@@ -176,37 +144,13 @@ void NiMidiSurface::Run() {
         }
         else if (getExtEditMode() == EXT_EDIT_TEMPO) {
             if (cycleTimer == -1) {
-                this->_updateTransportAndNavButtons();
+                this->updateTransportAndNavButtons();
                 midiSender->sendCc(CMD_NAV_TRACKS, 1);
                 midiSender->sendCc(CMD_NAV_CLIPS, 0);
             }
-            // Cycle 4D Encoder LEDs
-            cycleTimer += 1;
-            if (cycleTimer >= CYCLE_T) {
-                cycleTimer = 0;
-                cyclePos += 1;
-                if (cyclePos > 3) {
-                    cyclePos = 0;
-                }
-                switch (cyclePos) { // counter clockwise cycling
-                case 0:
-                    midiSender->sendCc(CMD_NAV_TRACKS, 1);
-                    midiSender->sendCc(CMD_NAV_CLIPS, 0);
-                    break;
-                case 1:
-                    midiSender->sendCc(CMD_NAV_TRACKS, 0);
-                    midiSender->sendCc(CMD_NAV_CLIPS, 2);
-                    break;
-                case 2:
-                    midiSender->sendCc(CMD_NAV_TRACKS, 2);
-                    midiSender->sendCc(CMD_NAV_CLIPS, 0);
-                    break;
-                case 3:
-                    midiSender->sendCc(CMD_NAV_TRACKS, 0);
-                    midiSender->sendCc(CMD_NAV_CLIPS, 1);
-                    break;
-                }
-            }
+            
+            cycleEncoderLEDs(cycleTimer, cyclePos, COUNTER_CLOCKWISE, midiSender);
+            
             // Flash METRO button
             flashTimer += 1;
             if (flashTimer >= FLASH_T) {
@@ -216,17 +160,8 @@ void NiMidiSurface::Run() {
                 midiSender->sendCc(CMD_METRO, onOff);
             }
         }
-        else if (getExtEditMode() == EXT_EDIT_ACTIONS) {
-            if (flashTimer != -4) {
-                this->_updateTransportAndNavButtons();
-                lightOn = false;
-                flashTimer = -4;
-                cycleTimer = -1;
-                cyclePos = 0;
-            }
-        }
 
-        if (getExtEditMode() != EXT_EDIT_ACTIONS) {
+        if (getExtEditMode() != EXT_EDIT_ON) {
             peakMixerUpdate(midiSender);
         }
 
@@ -253,7 +188,7 @@ void NiMidiSurface::SetPlayState(bool play, bool pause, bool rec) {
     }
     if (pause) {
         midiSender->sendCc(CMD_PLAY, 1);
-        midiSender->sendCc(CMD_STOP, 1); // since there is no Pause button on KK we indicate it with both Play and Stop lit
+        midiSender->sendCc(CMD_STOP, 1);
     }
     else if (play) {
         midiSender->sendCc(CMD_PLAY, 1);
@@ -541,7 +476,7 @@ void NiMidiSurface::_onMidiEvent(MIDI_event_t* event) {
     processor.Handle(command, value);
 }
 
-void NiMidiSurface::_updateTransportAndNavButtons() {
+void NiMidiSurface::updateTransportAndNavButtons() {
     midiSender->sendCc(CMD_CLEAR, 1);
     metronomeUpdate(midiSender);
     if (GetPlayState() & 4) {
@@ -566,4 +501,44 @@ void NiMidiSurface::_updateTransportAndNavButtons() {
     }
     midiSender->sendCc(CMD_NAV_TRACKS, trackNavLights);
     midiSender->sendCc(CMD_NAV_CLIPS, 0); // ToDo: also restore  these lights to correct values
+}
+
+void NiMidiSurface::cycleEncoderLEDs(int& cycleTimer, int& cyclePos, CycleDirection direction, MidiSender* midiSender)
+{
+    cycleTimer += 1;
+    if (cycleTimer >= CYCLE_T) {
+        cycleTimer = 0;
+        cyclePos = (cyclePos + 1) % 4;
+
+        switch (cyclePos) {
+        case 0:
+            midiSender->sendCc(CMD_NAV_TRACKS, 1);
+            midiSender->sendCc(CMD_NAV_CLIPS, 0);
+            break;
+        case 1:
+            if (direction == CLOCKWISE) {
+                midiSender->sendCc(CMD_NAV_TRACKS, 0);
+                midiSender->sendCc(CMD_NAV_CLIPS, 1);
+            }
+            else {
+                midiSender->sendCc(CMD_NAV_TRACKS, 0);
+                midiSender->sendCc(CMD_NAV_CLIPS, 2);
+            }
+            break;
+        case 2:
+            midiSender->sendCc(CMD_NAV_TRACKS, 2);
+            midiSender->sendCc(CMD_NAV_CLIPS, 0);
+            break;
+        case 3:
+            if (direction == CLOCKWISE) {
+                midiSender->sendCc(CMD_NAV_TRACKS, 0);
+                midiSender->sendCc(CMD_NAV_CLIPS, 2);
+            }
+            else {
+                midiSender->sendCc(CMD_NAV_TRACKS, 0);
+                midiSender->sendCc(CMD_NAV_CLIPS, 1);
+            }
+            break;
+        }
+    }
 }

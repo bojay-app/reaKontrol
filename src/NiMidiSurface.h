@@ -7,6 +7,7 @@
 
 class CommandProcessor;
 class MediaTrack;
+enum CycleDirection;
 
 class NiMidiSurface : public BaseSurface {
 public:
@@ -37,7 +38,8 @@ private:
     CommandProcessor* processor;
     TrackSelectionDebouncer trackDebouncer;
 
-    void _updateTransportAndNavButtons();
+    void updateTransportAndNavButtons();
+    void cycleEncoderLEDs(int& cycleTimer, int& cyclePos, CycleDirection direction, MidiSender* midiSender);
 };
 
 #endif // NIMIDISURFACE_H

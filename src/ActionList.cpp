@@ -145,7 +145,6 @@ void showActionList(MidiSender* midiSender) {
 }
 
 void callAction(unsigned char actionSlot) {
-    setExtEditMode(EXT_EDIT_OFF);
     if (g_actionList.ID[actionSlot]) {
         Main_OnCommand(g_actionList.ID[actionSlot], 0);
     }

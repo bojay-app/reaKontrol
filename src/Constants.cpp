@@ -17,6 +17,7 @@ int bankEnd = 0;
 int scanTimer = SCAN_T - 1;
 int connectCount = 0;
 
+MediaTrack* activeKkInstance = nullptr;
 int g_trackInFocus = 0;
 bool g_anySolo = false;
 int g_soloStateBank[BANK_NUM_TRACKS] = { 0 };
@@ -39,7 +40,8 @@ void setExtEditMode(int newMode) {
 
     if (newMode == EXT_EDIT_OFF) {
         // We refresh config for each edit mode switch
-        debugLog("Refreshed Configs");
+        debugLog("Refreshed Configs & Cleared activeKkInstance");
+        activeKkInstance = nullptr;
         loadConfigFile();
     }
 }

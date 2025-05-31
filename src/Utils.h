@@ -41,6 +41,7 @@ unsigned char panToChar(double pan);
 // Convert Reaper volume to Komplete Kontrol Mk2 display value
 unsigned char volToChar_KkMk2(double volume);
 
+bool isTrackEmpty(MediaTrack* track);
 void showTempoInMixer(MidiSender* midiSender);
 void metronomeUpdate(MidiSender* midiSender);
 void allMixerUpdate(MidiSender* midiSender);
