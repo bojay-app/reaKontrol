@@ -54,14 +54,17 @@ const std::string getKkInstanceName(MediaTrack* track, bool stripPrefix) {
 		// Use a sufficiently large buffer
 		char fxName[512];
 		TrackFX_GetFXName(track, fx, fxName, sizeof(fxName));
-		debugLog(std::string("FX Name: ") + fxName);
 
 		// Look for Kontakt plugins (VST or VST3)
 		if (!strstr(fxName, KK_VST_PREFIX) && !strstr(fxName, KK_VST3_PREFIX)) {
 			continue;
 		}
 
-		return std::string(fxName);
+		char paramName[512];
+		TrackFX_GetParamName(track, fx, 0, paramName, sizeof(paramName));
+
+		debugLog(std::string("param Name: ") + paramName);
+		return std::string(paramName);
 	}
 
 	debugLog("Failed to find Kontakt instance name");

@@ -81,6 +81,7 @@ void toggleDAW(MidiSender* midiSender) {
     dawEnabled = !dawEnabled;
     if (dawEnabled) {
         midiSender->sendCc(CMD_HELLO, 2);
+        loadConfigFile();
     }
     else {
         midiSender->sendCc(CMD_GOODBYE, 0);
