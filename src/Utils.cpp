@@ -38,7 +38,6 @@ const std::string getKkInstanceName(MediaTrack* track, bool stripPrefix) {
         }
 
         debugLog(std::string("TrackFX_Show(3): ") + fxName);
-        TrackFX_Show(track, fxIndex, 3); // Focus Komplete Kontrol
         
         char paramName[512];
         TrackFX_GetParamName(track, fxIndex, 0, paramName, sizeof(paramName));
