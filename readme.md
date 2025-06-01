@@ -1,6 +1,8 @@
 ![alt text](ReaKontrol_v100.png?raw=true)
 
-# ReaKontrol
+# ReaKontrol (MK3)
+- The plugin is adapted for it to work with KONTROL MK3 keyboards with a major code refactoring & some added features, and changes, such as double click support. 
+- It's tested and it works. (Because I need it for my MK3 keyboard.) But since we don't have offical NI support. We need to click on the Encoder to manually load the instance on the keyboard. And double click the encoder can toggle fx window in Reaper.
 - Fork of the brumbear@pacificpeaks and it's from the excellent ReaKontrol repository originally published by James Teh: https://github.com/jcsteh/reaKontrol
 - License: GNU General Public License version 2.0.
 - License Notes: As the original work is published under GPLv2 the modified programs are also licensed under GPLv2. May be updated to GPLv3 if copyright holder of original work agrees to update too.
