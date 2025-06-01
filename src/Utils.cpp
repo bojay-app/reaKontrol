@@ -26,11 +26,8 @@ static std::unordered_map<int, std::function<void()>> g_actionCallbacks;
 static std::unordered_map<int, gaccel_register_t> g_registeredActions;
 static std::vector<std::string> g_actionDescriptions; // To store descriptions and maintain their lifetime
 
-void activateKkInstance(MediaTrack* track) {
-    if (!track) {
-        activeKkInstance = nullptr;
-        return;
-    }
+void activateKkInstance(MediaTrack* track, bool toggleFxWindow) {
+    if (!track) return;
 
     const int fxCount = TrackFX_GetCount(track);
     char fxName[512];
@@ -41,17 +38,16 @@ void activateKkInstance(MediaTrack* track) {
         }
 
         if (strstr(fxName, "Komplete Kontrol") || strstr(fxName, "Kontakt")) {
-            if (activeKkInstance == track) {
-                // Toggle FX window if the track is already activated
+            if (toggleFxWindow) {
                 bool isOpen = TrackFX_GetOpen(track, fxIndex);
                 TrackFX_Show(track, fxIndex, isOpen ? 2 : 3);
             }
             else {
-                // Force plugin to re-register with NIHIA
+                // Force plugin to re-register with NIHIA to load instance on the keyboard
                 TrackFX_SetOffline(track, fxIndex, true);
                 TrackFX_SetOffline(track, fxIndex, false);
-                activeKkInstance = track;
             }
+            
             break;
         }
     }

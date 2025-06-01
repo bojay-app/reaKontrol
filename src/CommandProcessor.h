@@ -8,7 +8,7 @@ public:
     CommandProcessor(MidiSender& sender, BaseSurface* surface = nullptr);
 
     // Main entry point to handle MIDI CC events
-    void Handle(unsigned char command, unsigned char value);
+    void Handle(unsigned char command, unsigned char value, const char* info);
 
 private:
     MidiSender& midiSender;
@@ -22,36 +22,36 @@ private:
     void LogCommand(unsigned char command, unsigned char value, const std::string& context);
 
     // Handler methods
-    bool handlePlay(unsigned char, unsigned char);
-    bool handleRestart(unsigned char, unsigned char);
-    bool handleStop(unsigned char, unsigned char);
-    bool handleRec(unsigned char, unsigned char);
-    bool handleLoop(unsigned char, unsigned char);
-    bool handleMetro(unsigned char, unsigned char);
-    bool handleTempo(unsigned char, unsigned char);
-    bool handleUndo(unsigned char, unsigned char);
-    bool handleRedo(unsigned char, unsigned char);
-    bool handleQuantize(unsigned char, unsigned char);
-    bool handleAuto(unsigned char, unsigned char);
-    bool toggleExtendedMode(unsigned char, unsigned char);
+    bool handlePlay(unsigned char command, unsigned char value, const char* info);
+    bool handleRestart(unsigned char command, unsigned char value, const char* info);
+    bool handleStop(unsigned char command, unsigned char value, const char* info);
+    bool handleRec(unsigned char command, unsigned char value, const char* info);
+    bool handleLoop(unsigned char command, unsigned char value, const char* info);
+    bool handleMetro(unsigned char command, unsigned char value, const char* info);
+    bool handleTempo(unsigned char command, unsigned char value, const char* info);
+    bool handleUndo(unsigned char command, unsigned char value, const char* info);
+    bool handleRedo(unsigned char command, unsigned char value, const char* info);
+    bool handleQuantize(unsigned char command, unsigned char value, const char* info);
+    bool handleAuto(unsigned char command, unsigned char value, const char* info);
+    bool toggleExtendedMode(unsigned char command, unsigned char value, const char* info);
 
-    bool handleMixerKnob(unsigned char, unsigned char);
+    bool handleMixerKnob(unsigned char command, unsigned char value, const char* info);
 
-    bool handleTrackSelected(unsigned char, unsigned char);
-    bool handleTrackMuted(unsigned char, unsigned char);
-    bool handleTrackSoloed(unsigned char, unsigned char);
+    bool handleTrackSelected(unsigned char command, unsigned char value, const char* info);
+    bool handleTrackMuted(unsigned char command, unsigned char value, const char* info);
+    bool handleTrackSoloed(unsigned char command, unsigned char value, const char* info);
 
-    bool handleNavTracks(unsigned char, unsigned char);
-    bool handleNavBanks(unsigned char, unsigned char);
-    bool handleNavClips(unsigned char, unsigned char);
-    bool handlePlayClip(unsigned char, unsigned char);
-    bool handleLoopMove(unsigned char, unsigned char);
+    bool handleNavTracks(unsigned char command, unsigned char value, const char* info);
+    bool handleNavBanks(unsigned char command, unsigned char value, const char* info);
+    bool handleNavClips(unsigned char command, unsigned char value, const char* info);
+    bool handlePlayClip(unsigned char command, unsigned char value, const char* info);
+    bool handleLoopMove(unsigned char command, unsigned char value, const char* info);
 
-    bool handleSelectedTrackVolume(unsigned char, unsigned char);
-    bool handleSelectedTrackPan(unsigned char, unsigned char);
-    bool handleSelectedTrackMute(unsigned char, unsigned char);
-    bool handleSelectedTrackSolo(unsigned char, unsigned char);
+    bool handleSelectedTrackVolume(unsigned char command, unsigned char value, const char* info);
+    bool handleSelectedTrackPan(unsigned char command, unsigned char value, const char* info);
+    bool handleSelectedTrackMute(unsigned char command, unsigned char value, const char* info);
+    bool handleSelectedTrackSolo(unsigned char command, unsigned char value, const char* info);
 
-    bool handleClear(unsigned char, unsigned char);
-    bool handleCount(unsigned char, unsigned char);
+    bool handleClear(unsigned char command, unsigned char value, const char* info);
+    bool handleCount(unsigned char command, unsigned char value, const char* info);
 };

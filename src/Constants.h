@@ -11,6 +11,11 @@ constexpr unsigned char TRTYPE_GROUP = 4;
 constexpr unsigned char TRTYPE_BUS = 5;
 constexpr unsigned char TRTYPE_MASTER = 6;
 
+constexpr int DOUBLE_CLICK_THRESHOLD = 20;
+constexpr int CLICK_COOLDOWN = 20;
+constexpr const char* EVENT_CLICK_SINGLE = "SINGLE";
+constexpr const char* EVENT_CLICK_DOUBLE = "DOUBLE";
+
 constexpr bool HIDE_MUTED_BY_SOLO = false;
 
 constexpr int FLASH_T = 16;
@@ -30,9 +35,8 @@ constexpr int KK_NIHIA_CONNECTED = 2; // NIHIA HELLO acknowledged / fully connec
 #define CSURF_EXT_SETMETRONOME 0x00010002
 
 // Global variables
-extern MediaTrack* activeKkInstance;
-
 extern bool g_debugLogging;
+extern int nextOpenTimer; // Cooldown time for processing next click events
 
 extern int protocolVersion;
 extern int bankStart;

@@ -39,6 +39,8 @@ private:
     MidiSender* midiSender;
     CommandProcessor* processor;
     TrackSelectionDebouncer trackDebouncer;
+    void addEventToMap(unsigned char command, unsigned char value);
+    void processClickEvent();
     void UpdateMixerScreenEncoder(int id, int numInBank);
     void updateTransportAndNavButtons();
     void cycleEncoderLEDs(int& cycleTimer, int& cyclePos, CycleDirection direction, MidiSender* midiSender);

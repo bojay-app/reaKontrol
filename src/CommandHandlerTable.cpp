@@ -11,10 +11,10 @@ void CommandHandlerTable::registerHandler(unsigned char command, HandlerFunc han
     commandHandlers[command] = std::move(handler);
 }
 
-bool CommandHandlerTable::dispatch(unsigned char command, unsigned char value) {
+bool CommandHandlerTable::dispatch(unsigned char command, unsigned char value, const char* info) {
     auto it = commandHandlers.find(command);
     if (it != commandHandlers.end()) {
-        return it->second(command, value);
+        return it->second(command, value, info);
     }
     return false;
 }

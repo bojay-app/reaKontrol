@@ -60,8 +60,8 @@ CommandProcessor::CommandProcessor(MidiSender& sender, BaseSurface* surface)
     registerHandler(CMD_COUNT, &CommandProcessor::handleCount);
 }
 
-void CommandProcessor::Handle(unsigned char command, unsigned char value) {
-    if (CommandHandlerTable::get().dispatch(command, value)) {
+void CommandProcessor::Handle(unsigned char command, unsigned char value, const char* info) {
+    if (CommandHandlerTable::get().dispatch(command, value, info)) {
         LogCommand(command, value, "handled");
     }
     else {
@@ -71,12 +71,12 @@ void CommandProcessor::Handle(unsigned char command, unsigned char value) {
 
 // --- Transpose Handlers ---
 
-bool CommandProcessor::handlePlay(unsigned char, unsigned char) {
+bool CommandProcessor::handlePlay(unsigned char command, unsigned char value, const char* info) {
     CSurf_OnPlay();
     return true;
 }
 
-bool CommandProcessor::handleRestart(unsigned char, unsigned char) {
+bool CommandProcessor::handleRestart(unsigned char command, unsigned char value, const char* info) {
     CSurf_GoStart();
     if (!(GetPlayState() & 1)) {
         CSurf_OnPlay();
@@ -84,7 +84,7 @@ bool CommandProcessor::handleRestart(unsigned char, unsigned char) {
     return true;
 }
 
-bool CommandProcessor::handleStop(unsigned char, unsigned char) {
+bool CommandProcessor::handleStop(unsigned char command, unsigned char value, const char* info) {
     int playState = GetPlayState();
 
     // Check if REAPER is playing or recording
@@ -107,8 +107,8 @@ bool CommandProcessor::handleStop(unsigned char, unsigned char) {
     return false;
 }
 
-bool CommandProcessor::handleRec(unsigned char, unsigned char) {
-    if (getExtEditMode() == EXT_EDIT_ON) {
+bool CommandProcessor::handleRec(unsigned char command, unsigned char value, const char* info) {
+    if (getExtEditMode() == EXT_EDIT_ON || info == EVENT_CLICK_DOUBLE) {
         Main_OnCommand(9, 0); // Toggle record arm for selected track
     }
     else {
@@ -117,7 +117,7 @@ bool CommandProcessor::handleRec(unsigned char, unsigned char) {
     return true;
 }
 
-bool CommandProcessor::handleLoop(unsigned char, unsigned char) {
+bool CommandProcessor::handleLoop(unsigned char command, unsigned char value, const char* info) {
     if (getExtEditMode() == EXT_EDIT_ON) {
         Main_OnCommand(40020, 0); // Time selection: Remove (unselect) time selection and loop points
         setExtEditMode(EXT_EDIT_LOOP);
@@ -131,32 +131,32 @@ bool CommandProcessor::handleLoop(unsigned char, unsigned char) {
     return true;
 }
 
-bool CommandProcessor::handleMetro(unsigned char, unsigned char) {
+bool CommandProcessor::handleMetro(unsigned char command, unsigned char value, const char* info) {
     Main_OnCommand(40364, 0); // Options: Toggle metronome
     return true;
 }
 
-bool CommandProcessor::handleTempo(unsigned char, unsigned char) {
+bool CommandProcessor::handleTempo(unsigned char command, unsigned char value, const char* info) {
     Main_OnCommand(1134, 0);
     return true;
 }
 
-bool CommandProcessor::handleUndo(unsigned char, unsigned char) {
+bool CommandProcessor::handleUndo(unsigned char command, unsigned char value, const char* info) {
     Main_OnCommand(40029, 0);
     return true;
 }
 
-bool CommandProcessor::handleRedo(unsigned char, unsigned char) {
+bool CommandProcessor::handleRedo(unsigned char command, unsigned char value, const char* info) {
     Main_OnCommand(40030, 0);
     return true;
 }
 
-bool CommandProcessor::handleQuantize(unsigned char, unsigned char) {
+bool CommandProcessor::handleQuantize(unsigned char command, unsigned char value, const char* info) {
     Main_OnCommand(42033, 0);
     return true;
 }
 
-bool CommandProcessor::handleAuto(unsigned char, unsigned char) {
+bool CommandProcessor::handleAuto(unsigned char command, unsigned char value, const char* info) {
     if (g_trackInFocus < 1) {
         int mode = GetGlobalAutomationOverride();
         mode = (mode > 1) ? -1 : 4;
@@ -172,10 +172,9 @@ bool CommandProcessor::handleAuto(unsigned char, unsigned char) {
     return true;
 }
 
-bool CommandProcessor::toggleExtendedMode(unsigned char, unsigned char) {
+bool CommandProcessor::toggleExtendedMode(unsigned char command, unsigned char value, const char* info) {
     if (getExtEditMode() == EXT_EDIT_ON) {
         allMixerUpdate(&midiSender);
-        peakMixerUpdate(&midiSender);
         setExtEditMode(EXT_EDIT_OFF);
     } else {
         setExtEditMode(EXT_EDIT_ON);
@@ -186,7 +185,7 @@ bool CommandProcessor::toggleExtendedMode(unsigned char, unsigned char) {
 
 // ---- Mixer Knob Hanlders ----
 
-bool CommandProcessor::handleMixerKnob(unsigned char command, unsigned char value) {
+bool CommandProcessor::handleMixerKnob(unsigned char command, unsigned char value, const char* info) {
     signed char delta = convertSignedMidiValue(value);
     MediaTrack* track = nullptr;
 
@@ -205,7 +204,7 @@ bool CommandProcessor::handleMixerKnob(unsigned char command, unsigned char valu
 
 // ---- Track Control Handlers ----
 
-bool CommandProcessor::handleTrackSelected(unsigned char, unsigned char value) {
+bool CommandProcessor::handleTrackSelected(unsigned char command, unsigned char value, const char* info) {
     MediaTrack* track = CSurf_TrackFromID(value, false);
     if (!track) return false;
 
@@ -218,32 +217,31 @@ bool CommandProcessor::handleTrackSelected(unsigned char, unsigned char value) {
     return true;
 }
 
-bool CommandProcessor::handleTrackMuted(unsigned char, unsigned char value) {
-    if (getExtEditMode() != EXT_EDIT_OFF) {
-        callAction(value);
-        showActionList(&midiSender);
-        return true;
-    }
-    else {
+bool CommandProcessor::handleTrackMuted(unsigned char command, unsigned char value, const char* info) {
+    if (getExtEditMode() == EXT_EDIT_OFF) {
         MediaTrack* track = CSurf_TrackFromID(value, false);
         return toggleTrackMute(track);
     }
-}
-
-bool CommandProcessor::handleTrackSoloed(unsigned char, unsigned char value) {
-    if (getExtEditMode() != EXT_EDIT_OFF) {
-        callAction(value);
+    else {
+        callAction(value, &midiSender);
         return true;
     }
-    else {
+}
+
+bool CommandProcessor::handleTrackSoloed(unsigned char command, unsigned char value, const char* info) {
+    if (getExtEditMode() == EXT_EDIT_OFF) {
         MediaTrack* track = CSurf_TrackFromID(value, false);
         return toggleTrackSolo(track);
+    }
+    else {
+        callAction(value, &midiSender);
+        return true;
     }
 }
 
 // ---- Navigation Handlers ----
 
-bool CommandProcessor::handleNavTracks(unsigned char, unsigned char value) {
+bool CommandProcessor::handleNavTracks(unsigned char command, unsigned char value, const char* info) {
     if (getExtEditMode() == EXT_EDIT_LOOP) {
         if (value == 127) {
             Main_OnCommand(40222, 0); // Loop points: Set start point
@@ -274,7 +272,7 @@ bool CommandProcessor::handleNavTracks(unsigned char, unsigned char value) {
     }
 }
 
-bool CommandProcessor::handleNavBanks(unsigned char, unsigned char value) {
+bool CommandProcessor::handleNavBanks(unsigned char command, unsigned char value, const char* info) {
     int step = convertSignedMidiValue(value);
     int numTracks = CSurf_NumTracks(false);
     int newBankStart = g_trackInFocus + step * BANK_NUM_TRACKS;
@@ -290,33 +288,39 @@ bool CommandProcessor::handleNavBanks(unsigned char, unsigned char value) {
     return true;
 }
 
-bool CommandProcessor::handleNavClips(unsigned char, unsigned char value) {
+bool CommandProcessor::handleNavClips(unsigned char command, unsigned char value, const char* info) {
     int step = convertSignedMidiValue(value);
     Main_OnCommand(step > 0 ? 40173 : 40172, 0);
     return true;
 }
 
-bool CommandProcessor::handlePlayClip(unsigned char, unsigned char) {
+bool CommandProcessor::handlePlayClip(unsigned char command, unsigned char value, const char* info) {
     if (getExtEditMode() == EXT_EDIT_ON) {
         Main_OnCommand(40012, 0); // Item: Split items at edit or play cursor (select right)
         return true;
     }
     else if (getExtEditMode() == EXT_EDIT_OFF) {
-        RefocusBank();
-
-        // Enable kkInstance
         bool tryTargetFirstTrack = g_trackInFocus == 0;
         MediaTrack* track = CSurf_TrackFromID(tryTargetFirstTrack ? 1 : g_trackInFocus, false);
         if (!track) return false;
         g_trackInFocus = tryTargetFirstTrack ? 1 : g_trackInFocus;
-        activateKkInstance(track);
-        return true;
+        
+        if (info == EVENT_CLICK_DOUBLE) {
+            // Toggle fxWindow
+            activateKkInstance(track, true);
+            return true;
+        }
+        else {
+            // Show kkinstance on keyboard
+            activateKkInstance(track, false);
+            return true;
+        }
     }
 
     return false;
 }
 
-bool CommandProcessor::handleLoopMove(unsigned char, unsigned char value) {
+bool CommandProcessor::handleLoopMove(unsigned char command, unsigned char value, const char* info) {
     if (value <= 63) {
         Main_OnCommand(40038, 0); // Shift time selection right (by its own length)
     }
@@ -328,7 +332,7 @@ bool CommandProcessor::handleLoopMove(unsigned char, unsigned char value) {
 
 // ---- Selected Track Knob Handlers ----
 
-bool CommandProcessor::handleSelectedTrackVolume(unsigned char cmd, unsigned char value) {
+bool CommandProcessor::handleSelectedTrackVolume(unsigned char command, unsigned char value, const char* info) {
     if (getExtEditMode() == EXT_EDIT_ON || getExtEditMode() == EXT_EDIT_LOOP) {
         // Scroll playhead to next/previous grid division
         if (value <= 63) {
@@ -343,7 +347,7 @@ bool CommandProcessor::handleSelectedTrackVolume(unsigned char cmd, unsigned cha
         // Adjust selected track vol (default 0 master track)
         MediaTrack* track = CSurf_TrackFromID(g_trackInFocus, false);
         signed char vol = convertSignedMidiValue(value);
-        if (cmd == CMD_MOVE_TRANSPORT) {
+        if (command == CMD_MOVE_TRANSPORT) {
             // The signal is 1 : 127 => 1 : -1, which is too small for volume. So we make it the same value as the track volume cmd
             vol *= 63; 
         }
@@ -351,20 +355,20 @@ bool CommandProcessor::handleSelectedTrackVolume(unsigned char cmd, unsigned cha
     }
 }
 
-bool CommandProcessor::handleSelectedTrackPan(unsigned char, unsigned char value) {
+bool CommandProcessor::handleSelectedTrackPan(unsigned char command, unsigned char value, const char* info) {
     if (g_trackInFocus < 1) return false;
     MediaTrack* track = CSurf_TrackFromID(g_trackInFocus, false);
     return adjustTrackPan(track, convertSignedMidiValue(value));
 }
 
-bool CommandProcessor::handleSelectedTrackMute(unsigned char, unsigned char) {
+bool CommandProcessor::handleSelectedTrackMute(unsigned char command, unsigned char value, const char* info) {
     if (getExtEditMode() == EXT_EDIT_ON) { return true; }
     if (g_trackInFocus < 1) return false;
     MediaTrack* track = CSurf_TrackFromID(g_trackInFocus, false);
     return toggleTrackMute(track);
 }
 
-bool CommandProcessor::handleSelectedTrackSolo(unsigned char, unsigned char) {
+bool CommandProcessor::handleSelectedTrackSolo(unsigned char command, unsigned char value, const char* info) {
     if (getExtEditMode() == EXT_EDIT_ON) { return true; }
 
     if (g_trackInFocus < 1) return false;
@@ -374,7 +378,7 @@ bool CommandProcessor::handleSelectedTrackSolo(unsigned char, unsigned char) {
 
 // ---- Miscellaneous Handlers ----
 
-bool CommandProcessor::handleClear(unsigned char, unsigned char) {
+bool CommandProcessor::handleClear(unsigned char command, unsigned char value, const char* info) {
     if (getExtEditMode() == EXT_EDIT_ON) {
         Main_OnCommand(40005, 0); // Remove selected track
         if (surface) {
@@ -389,7 +393,7 @@ bool CommandProcessor::handleClear(unsigned char, unsigned char) {
     return true;
 }
 
-bool CommandProcessor::handleCount(unsigned char, unsigned char) {
+bool CommandProcessor::handleCount(unsigned char command, unsigned char value, const char* info) {
     g_KKcountInTriggered = true;
     g_KKcountInMetroState = (*(int*)GetConfigVar("projmetroen") & 1);
     Main_OnCommand(41745, 0);        // Enable metronome
@@ -403,7 +407,7 @@ bool CommandProcessor::handleCount(unsigned char, unsigned char) {
 
 template <typename Method>
 void CommandProcessor::registerHandler(unsigned char cmd, Method method) {
-    CommandHandlerTable::get().registerHandler(cmd, std::bind(method, this, std::placeholders::_1, std::placeholders::_2));
+    CommandHandlerTable::get().registerHandler(cmd, std::bind(method, this, std::placeholders::_1, std::placeholders::_2, std::placeholders::_3));
 }
 
 void CommandProcessor::RefocusBank()

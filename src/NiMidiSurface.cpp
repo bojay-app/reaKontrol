@@ -1,3 +1,4 @@
+#include <unordered_set>
 #include "NiMidiSurface.h"
 #include "reaKontrol.h"
 #include "Constants.h"
@@ -10,6 +11,19 @@
 enum CycleDirection {
     CLOCKWISE,
     COUNTER_CLOCKWISE
+};
+
+struct MidiEventData {
+    unsigned char value;
+    int timer;
+};
+
+static int timer = 0;
+static std::unordered_map<unsigned char, std::vector<MidiEventData>> eventMap;
+
+std::unordered_set<unsigned char> doubleClickCommands = {
+    CMD_PLAY_CLIP,
+    CMD_REC
 };
 
 NiMidiSurface::NiMidiSurface()
@@ -179,7 +193,53 @@ void NiMidiSurface::Run() {
             trackDebouncer.reset(); // clean after decision
         }
 
+        // Timer (eg: for double click detection)
+        timer++;
+        processClickEvent();
+        
         BaseSurface::Run();
+    }
+}
+
+void NiMidiSurface::processClickEvent()
+{
+    if (!eventMap.empty()) {
+        for (auto it = eventMap.begin(); it != eventMap.end(); ++it) {
+            unsigned char command = it->first;
+            std::vector<MidiEventData>& events = it->second;
+
+            // If there are multiple events for the same command, treat it as a double-click
+            if (events.size() > 1) {
+                debugLog("Double Click Event '" + std::to_string(command) + "' with " + std::to_string(events.size()) + " events");
+                auto value = events.back().value;
+
+                // Clear all events for this command after double-click processing
+                it->second.clear();
+                nextOpenTimer = timer + CLICK_COOLDOWN;
+
+                // Process the double-click
+                static CommandProcessor processor(*midiSender);
+                processor.Handle(command, value, EVENT_CLICK_DOUBLE); // Use last event for double-click
+            }
+            else if (events.size() == 1) {
+                // If there's only one event, check for timeout
+                MidiEventData& eventData = events.front();  // Get the single event
+
+                if (timer - eventData.timer > DOUBLE_CLICK_THRESHOLD) {
+                    // Event has expired (no second event arrived within the threshold), treat it as a single-click
+                    debugLog("Single Click Event '" + std::to_string(command) + "': timed out");
+                    auto value = eventData.value;
+
+                    // Clear all events for this command after single-click processing
+                    it->second.clear();
+                    nextOpenTimer = timer + CLICK_COOLDOWN;
+
+                    // Process the single-click logic
+                    static CommandProcessor processor(*midiSender);
+                    processor.Handle(command, value, EVENT_CLICK_SINGLE);
+                }
+            }
+        }
     }
 }
 
@@ -453,9 +513,24 @@ void NiMidiSurface::_onMidiEvent(MIDI_event_t* event) {
 
         return;
     }
+    else if (doubleClickCommands.find(command) != doubleClickCommands.end()) {
+        addEventToMap(command, value);
+        return;
+    }
 
     static CommandProcessor processor(*midiSender);
-    processor.Handle(command, value);
+    processor.Handle(command, value, EVENT_CLICK_SINGLE);
+}
+
+void NiMidiSurface::addEventToMap(unsigned char command, unsigned char value) {
+    // Check if the command already has 2 events stored in the map & if still during cooldown to prevent multiple clicks
+    if (eventMap[command].size() >= 2 || (nextOpenTimer > timer)) {
+        debugLog("Max events reached for command: " + std::to_string(command));
+        return;
+    }
+
+    MidiEventData eventData = { value, timer };
+    eventMap[command].push_back(eventData);
 }
 
 void NiMidiSurface::UpdateMixerScreenEncoder(int id, int numInBank)

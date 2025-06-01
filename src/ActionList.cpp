@@ -145,7 +145,7 @@ void showActionList(MidiSender* midiSender) {
     midiSender->sendSysex(CMD_TRACK_VU, 2, 0, clearPeak);
 }
 
-void callAction(unsigned char actionSlot) {
+void callAction(unsigned char actionSlot, MidiSender* midiSender) {
     auto command = g_actionList.ID[actionSlot];
     auto name = g_actionList.name[actionSlot];
     if (command) {
@@ -154,6 +154,7 @@ void callAction(unsigned char actionSlot) {
         // Check if name contains "Tuner" or "Track"
         if (strstr(name, "Tuner") || strstr(name, "Track")) {
             setExtEditMode(EXT_EDIT_OFF);
+            allMixerUpdate(midiSender);
         }
     }
 }

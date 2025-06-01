@@ -15,7 +15,7 @@ struct ReaKontrolAction {
     std::function<void()> callback;
 };
 
-void activateKkInstance(MediaTrack* track);
+void activateKkInstance(MediaTrack* track, bool toggleFxWindow);
 
 // Initializes the action registry
 void InitActionRegistry(reaper_plugin_info_t* rec);
