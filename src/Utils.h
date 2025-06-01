@@ -39,7 +39,7 @@ signed char convertSignedMidiValue(unsigned char value);
 unsigned char panToChar(double pan);
 
 // Convert Reaper volume to Komplete Kontrol Mk2 display value
-unsigned char volToChar_KkMk2(double volume);
+unsigned char volToChar_KkMk3(double volume);
 
 bool isTrackEmpty(MediaTrack* track);
 void showTempoInMixer(MidiSender* midiSender);

@@ -85,7 +85,9 @@ void NiMidiSurface::Run() {
             scanTimer = 0;
             if (connectCount < CONNECT_N) {
                 connectCount++;
-                midiSender->sendCc(CMD_HELLO, 2);
+                if (!g_debugLogging) g_debugLogging = true;
+                debugLog("HELLO!");
+                midiSender->sendCc(CMD_HELLO, 3);
             }
             else {
                 int answer = ShowMessageBox("Komplete Kontrol Keyboard detected but failed to connect. Please restart NI services (NIHostIntegrationAgent), then retry.", "ReaKontrol", 5);
@@ -110,24 +112,26 @@ void NiMidiSurface::Run() {
 
         if (getExtEditMode() == EXT_EDIT_OFF) {
             if (flashTimer != -1) {
-                debugLog("UI updated for off state");
+                
                 this->updateTransportAndNavButtons();
                 allMixerUpdate(midiSender);
                 peakMixerUpdate(midiSender);
 
                 lightOn = false;
+                // One time update
                 flashTimer = -1;
                 cycleTimer = -1;
                 cyclePos = 0;
             }
         }
         else if (getExtEditMode() == EXT_EDIT_ON) {
-            showActionList(midiSender);
             cycleEncoderLEDs(cycleTimer, cyclePos, CLOCKWISE, midiSender);
         }
         else if (getExtEditMode() == EXT_EDIT_LOOP) {
             if (cycleTimer == -1) {
+                debugLog("RUN: EXT_EDIT_LOOP");
                 this->updateTransportAndNavButtons();
+                peakMixerUpdate(midiSender);
                 midiSender->sendCc(CMD_NAV_TRACKS, 1);
                 midiSender->sendCc(CMD_NAV_CLIPS, 0);
             }
@@ -144,7 +148,9 @@ void NiMidiSurface::Run() {
         }
         else if (getExtEditMode() == EXT_EDIT_TEMPO) {
             if (cycleTimer == -1) {
+                debugLog("RUN: EXT_EDIT_TEMPO");
                 this->updateTransportAndNavButtons();
+                peakMixerUpdate(midiSender);
                 midiSender->sendCc(CMD_NAV_TRACKS, 1);
                 midiSender->sendCc(CMD_NAV_CLIPS, 0);
             }
@@ -161,6 +167,7 @@ void NiMidiSurface::Run() {
             }
         }
 
+        // Continuesly updating peak info
         if (getExtEditMode() != EXT_EDIT_ON) {
             peakMixerUpdate(midiSender);
         }
@@ -178,6 +185,7 @@ void NiMidiSurface::Run() {
 
 void NiMidiSurface::SetPlayState(bool play, bool pause, bool rec) {
     if (g_connectedState != KK_NIHIA_CONNECTED) return;
+    debugLog("SetPlayState");
     
     // Update transport button lights
     if (rec) {
@@ -212,11 +220,14 @@ void NiMidiSurface::SetPlayState(bool play, bool pause, bool rec) {
 
 void NiMidiSurface::SetRepeatState(bool rep) {
     if (g_connectedState != KK_NIHIA_CONNECTED) return;
+    debugLog("SetRepeatState");
     midiSender->sendCc(CMD_LOOP, rep ? 1 : 0);
 }
 
 void NiMidiSurface::SetTrackListChange() {
     if (g_connectedState != KK_NIHIA_CONNECTED) return;
+    debugLog("SetTrackListChange");
+    
     // If tracklist changes update Mixer View and ensure sanity of track and bank focus
     int numTracks = CSurf_NumTracks(false);
     // Protect against loosing track focus that could impede track navigation. Set focus on last track in this case.
@@ -262,49 +273,10 @@ void NiMidiSurface::SetSurfaceSelected(MediaTrack* track, bool selected) {
             // Track selection has changed
             g_trackInFocus = id;
             debugLog("trackInFocus updated to: " + std::to_string(g_trackInFocus));
-            int oldBankStart = bankStart;
-            bankStart = id - numInBank;
-            if (bankStart != oldBankStart) {
-                // Update everything
-                allMixerUpdate(midiSender); // Note: this will also update 4D track nav LEDs, g_muteStateBank and g_soloStateBank caches
-            }
-            else {
-                // Update 4D Encoder track navigation LEDs
-                int numTracks = CSurf_NumTracks(false);
-                int trackNavLights = 3; // left and right on
-                if (g_trackInFocus < 2) {
-                    trackNavLights &= 2; // left off
-                }
-                if (g_trackInFocus >= numTracks) {
-                    trackNavLights &= 1; // right off
-                }
-                midiSender->sendCc(CMD_NAV_TRACKS, trackNavLights);
-            }
-            if (g_trackInFocus != 0) {
-                // Mark selected track as available and update Mute and Solo Button lights
-                midiSender->sendSysex(CMD_SEL_TRACK_AVAILABLE, 1, 0); // Needed by NIHIA v1.8.7 (KK v2.1.2)
-                midiSender->sendCc(CMD_SEL_TRACK_AVAILABLE, 1); // Needed by NIHIA v1.8.8 (KK v2.1.3)
-                midiSender->sendSysex(CMD_TOGGLE_SEL_TRACK_MUTE, g_muteStateBank[numInBank] ? 1 : 0, 0); // Needed by NIHIA v1.8.7 (KK v2.1.2)
-                midiSender->sendCc(CMD_TOGGLE_SEL_TRACK_MUTE, g_muteStateBank[numInBank] ? 1 : 0); // Needed by NIHIA v1.8.8 (KK v2.1.3)
-                midiSender->sendSysex(CMD_TOGGLE_SEL_TRACK_SOLO, g_soloStateBank[numInBank], 0); // Needed by NIHIA v1.8.7 (KK v2.1.2)
-                midiSender->sendCc(CMD_TOGGLE_SEL_TRACK_SOLO, g_soloStateBank[numInBank]); // Needed by NIHIA v1.8.8 (KK v2.1.3)
-                if (g_anySolo) {
-                    midiSender->sendSysex(CMD_SEL_TRACK_MUTED_BY_SOLO, (g_soloStateBank[numInBank] == 0) ? 1 : 0, 0); // Needed by NIHIA v1.8.7 (KK v2.1.2)
-                    midiSender->sendCc(CMD_SEL_TRACK_MUTED_BY_SOLO, (g_soloStateBank[numInBank] == 0) ? 1 : 0); // Needed by NIHIA v1.8.8 (KK v2.1.3)
-                }
-                else {
-                    midiSender->sendSysex(CMD_SEL_TRACK_MUTED_BY_SOLO, 0, 0); // Needed by NIHIA v1.8.7 (KK v2.1.2)
-                    midiSender->sendCc(CMD_SEL_TRACK_MUTED_BY_SOLO, 0); // Needed by NIHIA v1.8.8 (KK v2.1.3)
-                }
-            }
-            else {
-                // Master track not available for Mute and Solo
-                midiSender->sendSysex(CMD_SEL_TRACK_AVAILABLE, 0, 0); // Needed by NIHIA v1.8.7 (KK v2.1.2)
-                midiSender->sendCc(CMD_SEL_TRACK_AVAILABLE, 0); // Needed by NIHIA v1.8.8 (KK v2.1.3)
-            }
-            // Let Keyboard know about changed track selection
-            midiSender->sendSysex(CMD_TRACK_SELECTED, 1, numInBank);
+            
+            if (getExtEditMode() != EXT_EDIT_ON) UpdateMixerScreenEncoder(id, numInBank);
         }
+        
         // ------------------------- Automation Mode -----------------------
         // Update automation mode
         // AUTO = ON: touch, write, latch or latch preview
@@ -319,12 +291,13 @@ void NiMidiSurface::SetSurfaceSelected(MediaTrack* track, bool selected) {
             // Global Automation Override
             midiSender->sendCc(CMD_AUTO, globalAutoMode > 1 ? 1 : 0);
         }
+        
         // --------------------------- Track Names --------------------------
         // Update selected track name
         // Note: Rather than using a callback SetTrackTitle(MediaTrack *track, const char *title) we update the name within
         // SetSurfaceSelected as it will be called anyway when the track name changes and SetTrackTitle sometimes receives 
         // cascades of calls for all tracks even if only one name changed
-        if ((id > 0) && (id >= bankStart) && (id <= bankEnd)) {
+        if ((id > 0) && (id >= bankStart) && (id <= bankEnd) && getExtEditMode() != EXT_EDIT_ON) {
             char* name = (char*)GetSetMediaTrackInfo(track, "P_NAME", nullptr);
             if ((!name) || (*name == '\0')) {
                 std::string s = "TRACK " + std::to_string(id);
@@ -339,18 +312,22 @@ void NiMidiSurface::SetSurfaceSelected(MediaTrack* track, bool selected) {
 
 void NiMidiSurface::SetSurfaceVolume(MediaTrack* track, double volume) {
     if (g_connectedState != KK_NIHIA_CONNECTED) return;
+    debugLog("SetSurfaceVolume");
+    
     int id = CSurf_TrackToID(track, false);
     if ((id >= bankStart) && (id <= bankEnd)) {
         int numInBank = id % BANK_NUM_TRACKS;
         char volText[64] = { 0 };
         mkvolstr(volText, volume);
         midiSender->sendSysex(CMD_TRACK_VOLUME_TEXT, 0, numInBank, volText);
-        midiSender->sendCc((CMD_KNOB_VOLUME0 + numInBank), volToChar_KkMk2(volume * 1.05925));
+        midiSender->sendCc((CMD_KNOB_VOLUME0 + numInBank), volToChar_KkMk3(volume * 1.05925));
     }
 }
 
 void NiMidiSurface::SetSurfacePan(MediaTrack* track, double pan) {
     if (g_connectedState != KK_NIHIA_CONNECTED) return;
+    debugLog("SetSurfacePan");
+    
     int id = CSurf_TrackToID(track, false);
     if (id < bankStart || id > bankEnd) return;
     int numInBank = id % BANK_NUM_TRACKS;
@@ -362,6 +339,8 @@ void NiMidiSurface::SetSurfacePan(MediaTrack* track, double pan) {
 
 void NiMidiSurface::SetSurfaceMute(MediaTrack* track, bool mute) {
     if (g_connectedState != KK_NIHIA_CONNECTED) return;
+    debugLog("SetSurfaceMute");
+    
     int id = CSurf_TrackToID(track, false);
     if (id == g_trackInFocus) {
         midiSender->sendSysex(CMD_TOGGLE_SEL_TRACK_MUTE, mute ? 1 : 0, 0); // Needed by NIHIA v1.8.7 (KK v2.1.2)
@@ -378,6 +357,8 @@ void NiMidiSurface::SetSurfaceMute(MediaTrack* track, bool mute) {
 
 void NiMidiSurface::SetSurfaceSolo(MediaTrack* track, bool solo) {
     if (g_connectedState != KK_NIHIA_CONNECTED) return;
+    debugLog("SetSurfaceSolo");
+    
     // Note: Solo in Reaper can have different meanings (Solo In Place, Solo In Front and much more -> Reaper Preferences)
     int id = CSurf_TrackToID(track, false);
 
@@ -460,6 +441,7 @@ void NiMidiSurface::_onMidiEvent(MIDI_event_t* event) {
     if (command == CMD_HELLO) {
         protocolVersion = value;
         if (value > 0) {
+            debugLog("CMD_HELLO");
             // Turn on button lights
             midiSender->sendCc(CMD_UNDO, 1);
             midiSender->sendCc(CMD_REDO, 1);
@@ -476,7 +458,57 @@ void NiMidiSurface::_onMidiEvent(MIDI_event_t* event) {
     processor.Handle(command, value);
 }
 
+void NiMidiSurface::UpdateMixerScreenEncoder(int id, int numInBank)
+{
+    debugLog("UpdateMixerScreenEncoder");
+    
+    int oldBankStart = bankStart;
+    bankStart = id - numInBank;
+    if (bankStart != oldBankStart) {
+        // Update everything
+        allMixerUpdate(midiSender); // Note: this will also update 4D track nav LEDs, g_muteStateBank and g_soloStateBank caches
+    }
+    else {
+        // Update 4D Encoder track navigation LEDs
+        int numTracks = CSurf_NumTracks(false);
+        int trackNavLights = 3; // left and right on
+        if (g_trackInFocus < 2) {
+            trackNavLights &= 2; // left off
+        }
+        if (g_trackInFocus >= numTracks) {
+            trackNavLights &= 1; // right off
+        }
+        midiSender->sendCc(CMD_NAV_TRACKS, trackNavLights);
+    }
+    if (g_trackInFocus != 0) {
+        // Mark selected track as available and update Mute and Solo Button lights
+        midiSender->sendSysex(CMD_SEL_TRACK_AVAILABLE, 1, 0); // Needed by NIHIA v1.8.7 (KK v2.1.2)
+        midiSender->sendCc(CMD_SEL_TRACK_AVAILABLE, 1); // Needed by NIHIA v1.8.8 (KK v2.1.3)
+        midiSender->sendSysex(CMD_TOGGLE_SEL_TRACK_MUTE, g_muteStateBank[numInBank] ? 1 : 0, 0); // Needed by NIHIA v1.8.7 (KK v2.1.2)
+        midiSender->sendCc(CMD_TOGGLE_SEL_TRACK_MUTE, g_muteStateBank[numInBank] ? 1 : 0); // Needed by NIHIA v1.8.8 (KK v2.1.3)
+        midiSender->sendSysex(CMD_TOGGLE_SEL_TRACK_SOLO, g_soloStateBank[numInBank], 0); // Needed by NIHIA v1.8.7 (KK v2.1.2)
+        midiSender->sendCc(CMD_TOGGLE_SEL_TRACK_SOLO, g_soloStateBank[numInBank]); // Needed by NIHIA v1.8.8 (KK v2.1.3)
+        if (g_anySolo) {
+            midiSender->sendSysex(CMD_SEL_TRACK_MUTED_BY_SOLO, (g_soloStateBank[numInBank] == 0) ? 1 : 0, 0); // Needed by NIHIA v1.8.7 (KK v2.1.2)
+            midiSender->sendCc(CMD_SEL_TRACK_MUTED_BY_SOLO, (g_soloStateBank[numInBank] == 0) ? 1 : 0); // Needed by NIHIA v1.8.8 (KK v2.1.3)
+        }
+        else {
+            midiSender->sendSysex(CMD_SEL_TRACK_MUTED_BY_SOLO, 0, 0); // Needed by NIHIA v1.8.7 (KK v2.1.2)
+            midiSender->sendCc(CMD_SEL_TRACK_MUTED_BY_SOLO, 0); // Needed by NIHIA v1.8.8 (KK v2.1.3)
+        }
+    }
+    else {
+        // Master track not available for Mute and Solo
+        midiSender->sendSysex(CMD_SEL_TRACK_AVAILABLE, 0, 0); // Needed by NIHIA v1.8.7 (KK v2.1.2)
+        midiSender->sendCc(CMD_SEL_TRACK_AVAILABLE, 0); // Needed by NIHIA v1.8.8 (KK v2.1.3)
+    }
+    // Let Keyboard know about changed track selection
+    midiSender->sendSysex(CMD_TRACK_SELECTED, 1, numInBank);
+}
+
 void NiMidiSurface::updateTransportAndNavButtons() {
+    debugLog("updateTransportAndNavButtons");
+    
     midiSender->sendCc(CMD_CLEAR, 1);
     metronomeUpdate(midiSender);
     if (GetPlayState() & 4) {
@@ -505,6 +537,7 @@ void NiMidiSurface::updateTransportAndNavButtons() {
 
 void NiMidiSurface::cycleEncoderLEDs(int& cycleTimer, int& cyclePos, CycleDirection direction, MidiSender* midiSender)
 {
+    debugLog("cycleEncoderLEDs");
     cycleTimer += 1;
     if (cycleTimer >= CYCLE_T) {
         cycleTimer = 0;

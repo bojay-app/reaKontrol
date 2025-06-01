@@ -1,3 +1,5 @@
+#pragma once
+
 #ifndef NIMIDISURFACE_H
 #define NIMIDISURFACE_H
 
@@ -37,7 +39,7 @@ private:
     MidiSender* midiSender;
     CommandProcessor* processor;
     TrackSelectionDebouncer trackDebouncer;
-
+    void UpdateMixerScreenEncoder(int id, int numInBank);
     void updateTransportAndNavButtons();
     void cycleEncoderLEDs(int& cycleTimer, int& cyclePos, CycleDirection direction, MidiSender* midiSender);
 };
