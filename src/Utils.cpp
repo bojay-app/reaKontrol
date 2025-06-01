@@ -195,6 +195,7 @@ void showTempoInMixer(MidiSender* midiSender) {
 }
 
 void allMixerUpdate(MidiSender* midiSender) {
+    debugLog("allMixerUpdate");
     int numInBank = 0;
     bankEnd = bankStart + BANK_NUM_TRACKS - 1; // avoid ambiguity: track counting always zero based
     int numTracks = CSurf_NumTracks(false);

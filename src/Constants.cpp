@@ -17,6 +17,7 @@ int bankEnd = 0;
 int scanTimer = SCAN_T - 1;
 int connectCount = 0;
 
+
 MediaTrack* activeKkInstance = nullptr;
 int g_trackInFocus = 0;
 bool g_anySolo = false;
@@ -25,6 +26,8 @@ bool g_muteStateBank[BANK_NUM_TRACKS] = { false };
 
 bool g_KKcountInTriggered = false;
 int g_KKcountInMetroState = 0;
+
+int g_connectedState = KK_NOT_CONNECTED;
 
 int getExtEditMode() {
     return extEditMode;
@@ -45,8 +48,6 @@ void setExtEditMode(int newMode) {
         loadConfigFile();
     }
 }
-
-int g_connectedState = KK_NOT_CONNECTED;
 
 #ifdef CONNECTION_DIAGNOSTICS
 int log_scanAttempts = 0;

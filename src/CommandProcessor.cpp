@@ -29,7 +29,7 @@ CommandProcessor::CommandProcessor(MidiSender& sender, BaseSurface* surface)
     registerHandler(CMD_AUTO, &CommandProcessor::handleAuto);
     registerHandler(CMD_STOP_CLIP, &CommandProcessor::toggleExtendedMode);
 
-    // Mixer knobs registration
+    // 8 Mixer knobs registration
     for (unsigned char cmd = CMD_KNOB_VOLUME0; cmd <= CMD_KNOB_VOLUME7; ++cmd) {
         registerHandler(cmd, &CommandProcessor::handleMixerKnob);
     }
@@ -221,6 +221,7 @@ bool CommandProcessor::handleTrackSelected(unsigned char, unsigned char value) {
 bool CommandProcessor::handleTrackMuted(unsigned char, unsigned char value) {
     if (getExtEditMode() != EXT_EDIT_OFF) {
         callAction(value);
+        showActionList(&midiSender);
         return true;
     }
     else {
@@ -250,6 +251,7 @@ bool CommandProcessor::handleNavTracks(unsigned char, unsigned char value) {
         else {
             Main_OnCommand(40223, 0); // Loop points: Set end point
         }
+        return true;
     }
     else {
         int step = convertSignedMidiValue(value);

@@ -6,6 +6,7 @@
 #include "Commands.h"
 #include <algorithm>
 #include <cctype>
+#include "Utils.h"
 
 #ifdef __APPLE__
     #define strcpy_s(dest,dest_sz, src) strlcpy(dest,src, dest_sz)
@@ -103,7 +104,7 @@ void loadActions(const char* pathname)
 void showActionList(MidiSender* midiSender) {
     static char clearPeak[(BANK_NUM_TRACKS * 2) + 1] = { 2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,0 };
     if (!midiSender) return;
-
+    debugLog("showActionList");
     midiSender->sendCc(CMD_NAV_BANKS, 0);
     for (int i = 0; i <= 7; ++i) {
         if (g_actionList.ID[i] > 0) {
@@ -145,7 +146,14 @@ void showActionList(MidiSender* midiSender) {
 }
 
 void callAction(unsigned char actionSlot) {
-    if (g_actionList.ID[actionSlot]) {
-        Main_OnCommand(g_actionList.ID[actionSlot], 0);
+    auto command = g_actionList.ID[actionSlot];
+    auto name = g_actionList.name[actionSlot];
+    if (command) {
+        Main_OnCommand(command, 0);
+        // We need to turn off edit mode because some action will cause kkinstance taking control
+        // Check if name contains "Tuner" or "Track"
+        if (strstr(name, "Tuner") || strstr(name, "Track")) {
+            setExtEditMode(EXT_EDIT_OFF);
+        }
     }
 }

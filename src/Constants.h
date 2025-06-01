@@ -1,3 +1,5 @@
+#pragma once
+
 class MediaTrack;
 
 // Compile-time constants
@@ -29,7 +31,9 @@ constexpr int KK_NIHIA_CONNECTED = 2; // NIHIA HELLO acknowledged / fully connec
 
 // Global variables
 extern MediaTrack* activeKkInstance;
+
 extern bool g_debugLogging;
+
 extern int protocolVersion;
 extern int bankStart;
 extern int bankEnd;
