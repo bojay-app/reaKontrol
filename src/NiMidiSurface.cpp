@@ -25,6 +25,7 @@ std::unordered_set<unsigned char> doubleClickCommands = {
     CMD_PLAY_CLIP,
     CMD_PLAY,
     CMD_STOP,
+    CMD_LOOP,
     CMD_REC
 };
 

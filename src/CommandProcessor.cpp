@@ -92,7 +92,19 @@ bool CommandProcessor::handleRestart(unsigned char command, unsigned char value,
 
 bool CommandProcessor::handleStop(unsigned char command, unsigned char value, const char* info) {
     if (info == EVENT_CLICK_DOUBLE) {
-        Main_OnCommand(40005, 0); // Remove tracks
+        MediaTrack* track = CSurf_TrackFromID(g_trackInFocus, false);
+        if (!track) return false;
+        int itemCount = GetTrackNumMediaItems(track);
+        if (itemCount == 0) {
+            Main_OnCommand(40005, 0); // Remove tracks
+        }
+        else {
+            int commandID = NamedCommandLookup("_SWS_DELALLITEMS"); // Delete all items on the selected tracks
+            if (commandID != 0) {
+                Main_OnCommand(commandID, 0);
+                return true;
+            }
+        }
     }
     else {
         int playState = GetPlayState();
@@ -112,8 +124,7 @@ bool CommandProcessor::handleStop(unsigned char command, unsigned char value, co
                 }
             }
             else {
-                // Stop playback or recording
-                CSurf_OnStop();
+                Main_OnCommand(40184, 0); // Remove items / tracks / envelope points(depending on focus) - no prompting
                 return true;
             }
         }
@@ -156,7 +167,12 @@ bool CommandProcessor::handleLoop(unsigned char command, unsigned char value, co
         setExtEditMode(EXT_EDIT_OFF);
     }
     else {
-        Main_OnCommand(1068, 0); // Toggle Repeat
+        if (info == EVENT_CLICK_DOUBLE) {
+            Main_OnCommand(40020, 0); // Time selection: Remove (unselect) time selection and loop points
+        }
+        else {
+            Main_OnCommand(1068, 0); // Toggle Repeat
+        }
     }
     return true;
 }
