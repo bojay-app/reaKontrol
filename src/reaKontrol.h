@@ -83,6 +83,7 @@
 #define REAPERAPI_WANT_TrackFX_GetPreset
 #define REAPERAPI_WANT_GetSetMediaTrackInfo_String
 #define REAPERAPI_WANT_CountTrackMediaItems
+#define REAPERAPI_WANT_GetMediaTrackInfo_Value
 
 // Reaper headers
 #include <reaper/reaper_plugin.h>

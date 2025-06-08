@@ -72,8 +72,14 @@ void CommandProcessor::Handle(unsigned char command, unsigned char value, const 
 // --- Transpose Handlers ---
 
 bool CommandProcessor::handlePlay(unsigned char command, unsigned char value, const char* info) {
-    CSurf_OnPlay();
-    return true;
+    if (info == EVENT_CLICK_DOUBLE) {
+        MediaTrack* track = CSurf_TrackFromID(g_trackInFocus, false);
+        return toggleTrackSolo(track);
+    }
+    else {
+        CSurf_OnPlay();
+        return true;
+    }
 }
 
 bool CommandProcessor::handleRestart(unsigned char command, unsigned char value, const char* info) {
@@ -85,22 +91,31 @@ bool CommandProcessor::handleRestart(unsigned char command, unsigned char value,
 }
 
 bool CommandProcessor::handleStop(unsigned char command, unsigned char value, const char* info) {
-    int playState = GetPlayState();
-
-    // Check if REAPER is playing or recording
-    if ((playState & 1) == 1 || (playState & 4) == 4) {
-        // Stop playback or recording
-        CSurf_OnStop();
-        return true;
+    if (info == EVENT_CLICK_DOUBLE) {
+        Main_OnCommand(40005, 0); // Remove tracks
     }
     else {
-        if (getExtEditMode() == EXT_EDIT_ON) {
-            Main_OnCommand(40184, 0); // Remove items / tracks / envelope points(depending on focus) - no prompting
+        int playState = GetPlayState();
+
+        // Check if REAPER is playing or recording
+        if ((playState & 1) == 1 || (playState & 4) == 4) {
+            // Stop playback or recording
+            CSurf_OnStop();
             return true;
         }
         else {
-            Main_OnCommand(9, 0); // Toggle record arm for selected track
-            return true;
+            if (getExtEditMode() == EXT_EDIT_ON) {
+                int commandID = NamedCommandLookup("_SWS_DELALLITEMS"); // Delete all items on the selected tracks
+                if (commandID != 0) {
+                    Main_OnCommand(commandID, 0);
+                    return true;
+                }
+            }
+            else {
+                // Stop playback or recording
+                CSurf_OnStop();
+                return true;
+            }
         }
     }
 
@@ -112,7 +127,22 @@ bool CommandProcessor::handleRec(unsigned char command, unsigned char value, con
         Main_OnCommand(9, 0); // Toggle record arm for selected track
     }
     else {
-        CSurf_OnRecord();
+        MediaTrack* track = CSurf_TrackFromID(g_trackInFocus, false);
+        if (!track) return false;
+
+        // Retrieve the record arm status
+        double recArmStatus = GetMediaTrackInfo_Value(track, "I_RECARM");
+
+        // Record as usual if the track is armed
+        if (recArmStatus == 1.0) {
+            CSurf_OnRecord();
+        }
+        else {
+            int commandID = NamedCommandLookup("_S&M_CYCLACTION_2"); // Create kontakt track
+            if (commandID != 0) {
+                Main_OnCommand(commandID, 0);
+            }
+        }
     }
     return true;
 }

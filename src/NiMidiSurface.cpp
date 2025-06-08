@@ -23,6 +23,8 @@ static std::unordered_map<unsigned char, std::vector<MidiEventData>> eventMap;
 
 std::unordered_set<unsigned char> doubleClickCommands = {
     CMD_PLAY_CLIP,
+    CMD_PLAY,
+    CMD_STOP,
     CMD_REC
 };
 
@@ -99,8 +101,6 @@ void NiMidiSurface::Run() {
             scanTimer = 0;
             if (connectCount < CONNECT_N) {
                 connectCount++;
-                if (!g_debugLogging) g_debugLogging = true;
-                debugLog("HELLO!");
                 midiSender->sendCc(CMD_HELLO, 3);
             }
             else {
