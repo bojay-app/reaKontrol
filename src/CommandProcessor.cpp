@@ -92,41 +92,22 @@ bool CommandProcessor::handleRestart(unsigned char command, unsigned char value,
 
 bool CommandProcessor::handleStop(unsigned char command, unsigned char value, const char* info) {
     if (info == EVENT_CLICK_DOUBLE) {
-        MediaTrack* track = CSurf_TrackFromID(g_trackInFocus, false);
-        if (!track) return false;
-        int itemCount = GetTrackNumMediaItems(track);
-        if (itemCount == 0) {
-            Main_OnCommand(40005, 0); // Remove tracks
-        }
-        else {
-            int commandID = NamedCommandLookup("_SWS_DELALLITEMS"); // Delete all items on the selected tracks
-            if (commandID != 0) {
-                Main_OnCommand(commandID, 0);
-                return true;
-            }
-        }
+       // Take: Crop to active take in items
+        Main_OnCommand(40131, 0);
+        return true;
     }
     else {
-        int playState = GetPlayState();
-
         // Check if REAPER is playing or recording
+        int playState = GetPlayState();
         if ((playState & 1) == 1 || (playState & 4) == 4) {
             // Stop playback or recording
             CSurf_OnStop();
             return true;
         }
         else {
-            if (getExtEditMode() == EXT_EDIT_ON) {
-                int commandID = NamedCommandLookup("_SWS_DELALLITEMS"); // Delete all items on the selected tracks
-                if (commandID != 0) {
-                    Main_OnCommand(commandID, 0);
-                    return true;
-                }
-            }
-            else {
-                Main_OnCommand(40184, 0); // Remove items / tracks / envelope points(depending on focus) - no prompting
-                return true;
-            }
+            // Remove items / tracks / envelope points(depending on focus) - no prompting
+            Main_OnCommand(40184, 0); 
+            return true;
         }
     }
 
